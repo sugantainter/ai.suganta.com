@@ -21,9 +21,10 @@ return [
         'default_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_DEFAULT_MAX_TOKENS', 220),
         'hard_cap_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_HARD_CAP_MAX_TOKENS', 320),
         'detailed_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_DETAILED_MAX_TOKENS', 900),
+        'complex_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_COMPLEX_MAX_TOKENS', 700),
         'concise_system_instruction' => env(
             'AI_TOKEN_OPTIMIZATION_CONCISE_SYSTEM_INSTRUCTION',
-            'Respond with the minimum tokens needed. Keep answers short and direct. Use only essential details.'
+            'Respond with minimal tokens while still fully answering the user request. Do not omit required key details.'
         ),
     ],
     'circuit_breaker_failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3),

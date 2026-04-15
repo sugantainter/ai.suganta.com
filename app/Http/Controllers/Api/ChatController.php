@@ -13,6 +13,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -341,6 +342,55 @@ class ChatController extends Controller
 
         return response()->json([
             'models' => $this->chatService->listAvailableModelsForTenant($tenantId),
+        ]);
+    }
+
+    public function feedback(Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $payload = $request->validate([
+            'conversation_id' => ['nullable', 'integer', 'min:1'],
+            'feedback' => ['required', 'string', 'in:up,down'],
+            'assistant_message' => ['required', 'string', 'max:20000'],
+            'provider' => ['nullable', 'string', 'max:80'],
+            'model' => ['nullable', 'string', 'max:120'],
+            'response_style' => ['nullable', 'string', 'in:concise,balanced,detailed'],
+        ]);
+
+        $assistantMessage = trim((string) ($payload['assistant_message'] ?? ''));
+        if ($assistantMessage === '') {
+            return response()->json([
+                'message' => 'Assistant message is required.',
+            ], 422);
+        }
+
+        $conversationId = (int) ($payload['conversation_id'] ?? 0);
+        $messageHash = sha1($assistantMessage);
+        $now = now();
+
+        DB::connection((string) config('ai.database_connection', 'ai_mysql'))
+            ->table('ai_response_feedback')
+            ->updateOrInsert(
+                [
+                    'tenant_id' => $tenantId,
+                    'conversation_id' => $conversationId,
+                    'message_hash' => $messageHash,
+                ],
+                [
+                    'feedback' => (string) ($payload['feedback'] ?? 'up'),
+                    'provider' => trim((string) ($payload['provider'] ?? '')),
+                    'model' => trim((string) ($payload['model'] ?? '')),
+                    'response_style' => trim((string) ($payload['response_style'] ?? '')),
+                    'assistant_message' => $assistantMessage,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+
+        return response()->json([
+            'saved' => true,
+            'feedback' => (string) ($payload['feedback'] ?? 'up'),
+            'message_hash' => $messageHash,
         ]);
     }
 

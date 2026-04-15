@@ -130,6 +130,7 @@
                     <ChatTopBar
                         v-model="model"
                         :capability-filter="capabilityFilter"
+                        :response-style="responseStyle"
                         :is-shared-view="isSharedView"
                         :model-options="modelOptions"
                         :status-text="statusText"
@@ -137,6 +138,7 @@
                         :share-loading="shareLoading"
                         :can-share="Boolean(currentConversationId)"
                         @update:capability-filter="capabilityFilter = $event"
+                        @update:response-style="responseStyle = $event"
                         @open-search="openSearchModal"
                         @share="shareConversation"
                     />
@@ -191,6 +193,57 @@
                                     </div>
                                     <span class="max-w-44 truncate">{{ attachment.name }}</span>
                                 </div>
+                            </div>
+                            <div
+                                v-if="!isSharedView && message.role === 'assistant' && !message.processing"
+                                class="mt-2 flex items-center gap-2"
+                            >
+                                <button
+                                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                    type="button"
+                                    :disabled="sending"
+                                    @click="copyAssistantReply(index)"
+                                >
+                                    {{ copiedAssistantIndex === index ? 'Copied' : 'Copy' }}
+                                </button>
+                                <button
+                                    class="rounded-md border px-2 py-1 text-[11px] disabled:opacity-60"
+                                    :class="message.feedback === 'up'
+                                        ? 'border-emerald-500/70 bg-emerald-500/20 text-emerald-200'
+                                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
+                                    type="button"
+                                    :disabled="sending"
+                                    @click="setAssistantFeedback(index, 'up')"
+                                >
+                                    👍
+                                </button>
+                                <button
+                                    class="rounded-md border px-2 py-1 text-[11px] disabled:opacity-60"
+                                    :class="message.feedback === 'down'
+                                        ? 'border-rose-500/70 bg-rose-500/20 text-rose-200'
+                                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
+                                    type="button"
+                                    :disabled="sending"
+                                    @click="setAssistantFeedback(index, 'down')"
+                                >
+                                    👎
+                                </button>
+                                <button
+                                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                    type="button"
+                                    :disabled="sending"
+                                    @click="regenerateAssistantReply(index)"
+                                >
+                                    Regenerate
+                                </button>
+                                <button
+                                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                    type="button"
+                                    :disabled="sending"
+                                    @click="continueAssistantReply(index)"
+                                >
+                                    Continue
+                                </button>
                             </div>
                         </div>
                         <div v-if="isSharedView" class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
@@ -453,6 +506,7 @@ const currentConversationId = ref(null);
 const model = ref('gemini-2.5-flash-lite');
 const temperature = ref(0.7);
 const capabilityFilter = ref('all');
+const responseStyle = ref('balanced');
 const inputMessage = ref('');
 const attachments = ref([]);
 const sending = ref(false);
@@ -461,6 +515,7 @@ const modelErrorMessage = ref('');
 const chatErrorMessage = ref('');
 const rateLimitHint = ref('');
 const asyncModeActive = ref(false);
+const copiedAssistantIndex = ref(null);
 const conversationAssets = ref([]);
 const assetsLoading = ref(false);
 const assetActionLoadingId = ref(null);
@@ -482,6 +537,7 @@ const speechSupported = Boolean(SpeechRecognitionCtor);
 const listening = ref(false);
 let recognition = null;
 let chatPollCancelled = false;
+let copiedAssistantTimer = null;
 const ASYNC_MODE_MAX_MS = 300000;
 const CHAT_SYNC_REQUEST_TIMEOUT_MS = 300000;
 const MAX_CONTEXT_MESSAGES = 12;
@@ -1004,6 +1060,9 @@ async function openConversation(conversationId, syncRoute = true) {
             role: item.role,
             content: item.content,
             attachments: [],
+            provider: '',
+            model: '',
+            feedback: null,
             processing: false,
         }));
         if (syncRoute) {
@@ -1172,6 +1231,9 @@ async function sendMessage() {
         role: 'assistant',
         content: '',
         attachments: [],
+        provider: '',
+        model: '',
+        feedback: null,
         processing: true,
     }];
     inputMessage.value = '';
@@ -1189,6 +1251,7 @@ async function sendMessage() {
         save_history: true,
         stream: false,
         temperature: Number(temperature.value),
+        response_style: String(responseStyle.value || 'balanced'),
         messages: buildPayloadMessages(nextMessages, composedUserText, currentAttachments),
         use_full_context: userExplicitlyWantsFullContext(composedUserText),
         attachments: currentAttachments.map((item) => ({
@@ -1201,38 +1264,7 @@ async function sendMessage() {
     };
 
     try {
-        let data;
-        try {
-            data = await apiRequest('/api/v1/chat', {
-                method: 'POST',
-                body: JSON.stringify(payload),
-                timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
-            });
-            if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
-                asyncModeActive.value = true;
-                statusText.value = 'Generating response...';
-                data = await pollAsyncChatJob(String(data.job_id));
-            }
-        } catch (error) {
-            if (!shouldFallbackToAsync(error)) {
-                throw error;
-            }
-            try {
-                data = await sendChatAsAsync(payload);
-            } catch (asyncError) {
-                if (String(asyncError?.code || '') !== 'async_timeout_sync_retry') {
-                    throw asyncError;
-                }
-
-                asyncModeActive.value = false;
-                statusText.value = 'Async timed out. Retrying in sync mode...';
-                data = await apiRequest('/api/v1/chat', {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                    timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
-                });
-            }
-        }
+        const data = await performChatRequest(payload);
 
         if (data.conversation_id) {
             currentConversationId.value = data.conversation_id;
@@ -1244,6 +1276,9 @@ async function sendMessage() {
             role: 'assistant',
             content: extractAssistantMessage(data),
             attachments: [],
+            provider: String(data?.provider || ''),
+            model: String(data?.model || model.value || ''),
+            feedback: null,
             processing: false,
         }];
         await Promise.all([loadConversationList(), loadUsage()]);
@@ -1264,6 +1299,259 @@ async function sendMessage() {
     } finally {
         asyncModeActive.value = false;
         sending.value = false;
+    }
+}
+
+async function performChatRequest(payload) {
+    try {
+        let data = await apiRequest('/api/v1/chat', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
+        });
+        if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
+            asyncModeActive.value = true;
+            statusText.value = 'Generating response...';
+            data = await pollAsyncChatJob(String(data.job_id));
+        }
+        return data;
+    } catch (error) {
+        if (!shouldFallbackToAsync(error)) {
+            throw error;
+        }
+        try {
+            return await sendChatAsAsync(payload);
+        } catch (asyncError) {
+            if (String(asyncError?.code || '') !== 'async_timeout_sync_retry') {
+                throw asyncError;
+            }
+            asyncModeActive.value = false;
+            statusText.value = 'Async timed out. Retrying in sync mode...';
+            return await apiRequest('/api/v1/chat', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
+            });
+        }
+    }
+}
+
+async function regenerateAssistantReply(assistantIndex) {
+    if (isSharedView.value || sending.value || assistantIndex < 0 || assistantIndex >= messages.value.length) {
+        return;
+    }
+    const targetMessage = messages.value[assistantIndex];
+    if (!targetMessage || targetMessage.role !== 'assistant') {
+        return;
+    }
+
+    const baseMessages = messages.value.slice(0, assistantIndex).map((message) => ({
+        role: message.role,
+        content: message.content,
+    }));
+    if (!baseMessages.some((message) => message.role === 'user' && String(message.content || '').trim() !== '')) {
+        return;
+    }
+
+    const snapshot = [...messages.value];
+    messages.value = [
+        ...snapshot.slice(0, assistantIndex),
+        { ...targetMessage, content: '', processing: true, attachments: [], feedback: null },
+        ...snapshot.slice(assistantIndex + 1),
+    ];
+    sending.value = true;
+    asyncModeActive.value = false;
+    chatErrorMessage.value = '';
+    rateLimitHint.value = '';
+    statusText.value = 'Regenerating response...';
+    await scrollMessagesToBottom();
+
+    const payload = {
+        model: model.value,
+        conversation_id: currentConversationId.value ?? undefined,
+        save_history: true,
+        stream: false,
+        temperature: Number(temperature.value),
+        response_style: String(responseStyle.value || 'balanced'),
+        messages: trimConversationContext(baseMessages),
+        use_full_context: true,
+        attachments: [],
+    };
+
+    try {
+        const data = await performChatRequest(payload);
+        if (data.conversation_id) {
+            currentConversationId.value = data.conversation_id;
+            await syncConversationRoute(data.conversation_id);
+            await loadConversationAssets(data.conversation_id);
+        }
+        messages.value = [
+            ...snapshot.slice(0, assistantIndex),
+            {
+                role: 'assistant',
+                content: extractAssistantMessage(data),
+                attachments: [],
+                provider: String(data?.provider || ''),
+                model: String(data?.model || model.value || ''),
+                feedback: null,
+                processing: false,
+            },
+            ...snapshot.slice(assistantIndex + 1),
+        ];
+        await Promise.all([loadConversationList(), loadUsage()]);
+        chatErrorMessage.value = '';
+        rateLimitHint.value = '';
+        statusText.value = 'Response regenerated';
+    } catch (error) {
+        messages.value = snapshot;
+        const userFriendlyMessage = toUserFriendlyChatError(error);
+        chatErrorMessage.value = userFriendlyMessage;
+        rateLimitHint.value = buildRateLimitHint(error);
+        statusText.value = userFriendlyMessage || 'Failed to regenerate response';
+        showErrorAlert(chatErrorMessage.value, 'Regenerate failed');
+    } finally {
+        asyncModeActive.value = false;
+        sending.value = false;
+    }
+}
+
+async function continueAssistantReply(assistantIndex) {
+    if (isSharedView.value || sending.value || assistantIndex < 0 || assistantIndex >= messages.value.length) {
+        return;
+    }
+    const targetMessage = messages.value[assistantIndex];
+    if (!targetMessage || targetMessage.role !== 'assistant') {
+        return;
+    }
+
+    const continuationPrompt = 'Continue from your previous answer and include only the missing important points.';
+    const baseMessages = messages.value.slice(0, assistantIndex + 1).map((message) => ({
+        role: message.role,
+        content: message.content,
+    }));
+    const continuationMessages = [...baseMessages, { role: 'user', content: continuationPrompt }];
+
+    const snapshot = [...messages.value];
+    messages.value = [
+        ...snapshot,
+        { role: 'assistant', content: '', attachments: [], provider: '', model: '', feedback: null, processing: true },
+    ];
+    sending.value = true;
+    asyncModeActive.value = false;
+    chatErrorMessage.value = '';
+    rateLimitHint.value = '';
+    statusText.value = 'Continuing response...';
+    await scrollMessagesToBottom();
+
+    const payload = {
+        model: model.value,
+        conversation_id: currentConversationId.value ?? undefined,
+        save_history: true,
+        stream: false,
+        temperature: Number(temperature.value),
+        response_style: String(responseStyle.value || 'balanced'),
+        messages: trimConversationContext(continuationMessages),
+        use_full_context: true,
+        attachments: [],
+    };
+
+    try {
+        const data = await performChatRequest(payload);
+        if (data.conversation_id) {
+            currentConversationId.value = data.conversation_id;
+            await syncConversationRoute(data.conversation_id);
+            await loadConversationAssets(data.conversation_id);
+        }
+        messages.value = [
+            ...snapshot,
+            {
+                role: 'assistant',
+                content: extractAssistantMessage(data),
+                attachments: [],
+                provider: String(data?.provider || ''),
+                model: String(data?.model || model.value || ''),
+                feedback: null,
+                processing: false,
+            },
+        ];
+        await Promise.all([loadConversationList(), loadUsage()]);
+        chatErrorMessage.value = '';
+        rateLimitHint.value = '';
+        statusText.value = 'Response continued';
+        await scrollMessagesToBottom();
+    } catch (error) {
+        messages.value = snapshot;
+        const userFriendlyMessage = toUserFriendlyChatError(error);
+        chatErrorMessage.value = userFriendlyMessage;
+        rateLimitHint.value = buildRateLimitHint(error);
+        statusText.value = userFriendlyMessage || 'Failed to continue response';
+        showErrorAlert(chatErrorMessage.value, 'Continue failed');
+    } finally {
+        asyncModeActive.value = false;
+        sending.value = false;
+    }
+}
+
+async function copyAssistantReply(index) {
+    const message = messages.value[index];
+    const text = String(message?.content || '').trim();
+    if (!text) {
+        return;
+    }
+    try {
+        if (!navigator?.clipboard?.writeText) {
+            throw new Error('Clipboard unavailable');
+        }
+        await navigator.clipboard.writeText(text);
+        copiedAssistantIndex.value = index;
+        if (copiedAssistantTimer) {
+            clearTimeout(copiedAssistantTimer);
+        }
+        copiedAssistantTimer = setTimeout(() => {
+            copiedAssistantIndex.value = null;
+            copiedAssistantTimer = null;
+        }, 1800);
+    } catch {
+        showErrorAlert('Unable to copy automatically. Please copy manually.', 'Copy failed');
+    }
+}
+
+async function setAssistantFeedback(index, type) {
+    const message = messages.value[index];
+    if (!message || message.role !== 'assistant') {
+        return;
+    }
+
+    const nextType = message.feedback === type ? null : type;
+    const previousFeedback = message.feedback ?? null;
+    messages.value[index] = {
+        ...message,
+        feedback: nextType,
+    };
+
+    if (nextType === null) {
+        return;
+    }
+
+    try {
+        await apiRequest('/api/v1/chat/feedback', {
+            method: 'POST',
+            body: JSON.stringify({
+                conversation_id: currentConversationId.value ?? undefined,
+                feedback: nextType,
+                assistant_message: String(message.content || ''),
+                provider: String(message.provider || ''),
+                model: String(message.model || model.value || ''),
+                response_style: String(responseStyle.value || 'balanced'),
+            }),
+            timeoutMs: 8000,
+        });
+    } catch (error) {
+        messages.value[index] = {
+            ...messages.value[index],
+            feedback: previousFeedback,
+        };
+        showErrorAlert(error?.message || 'Unable to save feedback right now.', 'Feedback failed');
     }
 }
 
@@ -1535,6 +1823,9 @@ async function loadSharedConversation(shareToken) {
             role: item.role,
             content: item.content,
             attachments: [],
+            provider: '',
+            model: String(data?.conversation?.model || ''),
+            feedback: null,
             processing: false,
         }));
         if (data.conversation?.model) {
@@ -1639,6 +1930,9 @@ onBeforeUnmount(() => {
     chatPollCancelled = true;
     if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer);
+    }
+    if (copiedAssistantTimer) {
+        clearTimeout(copiedAssistantTimer);
     }
     if (recognition && listening.value) {
         recognition.stop();

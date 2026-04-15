@@ -1307,18 +1307,34 @@ class UnifiedChatService
 
         $latestUserMessage = $this->extractLatestUserMessage((array) ($originalPayload['messages'] ?? [])) ?? '';
         $wantsDetailedResponse = $this->wantsDetailedResponse($latestUserMessage);
+        $requiresComplexResponse = $this->requiresComplexResponse($latestUserMessage);
+        $responseStyle = strtolower(trim((string) ($originalPayload['response_style'] ?? 'balanced')));
 
         $defaultMaxTokens = max(32, (int) ($tokenOptimization['default_max_tokens'] ?? 220));
         $hardCapMaxTokens = max($defaultMaxTokens, (int) ($tokenOptimization['hard_cap_max_tokens'] ?? 320));
+        $complexMaxTokens = max($hardCapMaxTokens, (int) ($tokenOptimization['complex_max_tokens'] ?? 700));
         $detailedMaxTokens = max($hardCapMaxTokens, (int) ($tokenOptimization['detailed_max_tokens'] ?? 900));
 
-        $effectiveCap = $wantsDetailedResponse ? $detailedMaxTokens : $hardCapMaxTokens;
+        $effectiveCap = ($responseStyle === 'detailed' || $wantsDetailedResponse)
+            ? $detailedMaxTokens
+            : ($requiresComplexResponse ? $complexMaxTokens : $hardCapMaxTokens);
         $requestedMaxTokens = (int) ($providerPayload['max_tokens'] ?? 0);
         if ($requestedMaxTokens > 0) {
             $providerPayload['max_tokens'] = min($requestedMaxTokens, $effectiveCap);
         } else {
-            $providerPayload['max_tokens'] = $wantsDetailedResponse ? $hardCapMaxTokens : $defaultMaxTokens;
+            $providerPayload['max_tokens'] = $responseStyle === 'concise'
+                ? min($defaultMaxTokens, $hardCapMaxTokens)
+                : ((($responseStyle === 'detailed') || $wantsDetailedResponse)
+                    ? $complexMaxTokens
+                    : ($requiresComplexResponse ? $complexMaxTokens : $defaultMaxTokens));
         }
+
+        $requestedTemperature = (float) ($providerPayload['temperature'] ?? 0.7);
+        $providerPayload['temperature'] = $responseStyle === 'concise'
+            ? min($requestedTemperature, 0.45)
+            : ($responseStyle === 'detailed'
+                ? max($requestedTemperature, 0.6)
+                : $requestedTemperature);
 
         $conciseInstruction = trim((string) ($tokenOptimization['concise_system_instruction'] ?? ''));
         if ($conciseInstruction === '') {
@@ -1330,13 +1346,20 @@ class UnifiedChatService
             return $providerPayload;
         }
 
+        $styleInstruction = $responseStyle === 'concise'
+            ? 'Style: concise. Keep the answer short while covering all required points.'
+            : ($responseStyle === 'detailed'
+                ? 'Style: detailed. Provide complete and structured explanation with practical details.'
+                : 'Style: balanced. Keep it compact but complete for the user request.');
+        $instruction = trim($conciseInstruction.' '.$styleInstruction);
+
         $firstMessage = $messages[0] ?? null;
         if (is_array($firstMessage) && ($firstMessage['role'] ?? null) === 'system') {
-            $messages[0]['content'] = trim(((string) ($firstMessage['content'] ?? '')).' '.$conciseInstruction);
+            $messages[0]['content'] = trim(((string) ($firstMessage['content'] ?? '')).' '.$instruction);
         } else {
             array_unshift($messages, [
                 'role' => 'system',
-                'content' => $conciseInstruction,
+                'content' => $instruction,
             ]);
         }
 
@@ -1363,6 +1386,35 @@ class UnifiedChatService
         ];
 
         foreach ($detailedCues as $cue) {
+            if (str_contains($normalized, $cue)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function requiresComplexResponse(string $text): bool
+    {
+        $normalized = strtolower(trim($text));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $complexCues = [
+            'report',
+            'seo report',
+            'audit',
+            'analysis',
+            'analyze',
+            'compare',
+            'roadmap',
+            'strategy',
+            'checklist',
+            'plan',
+        ];
+
+        foreach ($complexCues as $cue) {
             if (str_contains($normalized, $cue)) {
                 return true;
             }

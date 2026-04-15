@@ -14,6 +14,7 @@ Route::prefix('v1')
     ->middleware(['api.key.auth', 'throttle:ai-chat'])
     ->group(function (): void {
         Route::post('/chat', [ChatController::class, 'chat']);
+        Route::post('/chat/feedback', [ChatController::class, 'feedback']);
         Route::post('/chat/async', [ChatController::class, 'chatAsync']);
         Route::get('/chat/jobs/{jobId}', [ChatController::class, 'chatJobStatus']);
         Route::get('/chat/histories', [ChatController::class, 'histories']);

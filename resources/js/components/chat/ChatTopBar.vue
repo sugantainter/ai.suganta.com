@@ -41,6 +41,15 @@
                 <option value="web_search">Web search</option>
                 <option value="tools">Tools</option>
             </select>
+            <select
+                :value="responseStyle"
+                class="max-w-[34vw] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500 sm:max-w-none max-[420px]:w-full max-[420px]:max-w-none"
+                @change="$emit('update:responseStyle', $event.target.value)"
+            >
+                <option value="concise">Concise</option>
+                <option value="balanced">Balanced</option>
+                <option value="detailed">Detailed</option>
+            </select>
             <button
                 class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60 max-[420px]:w-full"
                 :disabled="shareLoading || !canShare"
@@ -62,6 +71,7 @@ defineProps({
     isSharedView: { type: Boolean, default: false },
     modelValue: { type: String, default: '' },
     capabilityFilter: { type: String, default: 'all' },
+    responseStyle: { type: String, default: 'balanced' },
     modelOptions: { type: Array, default: () => [] },
     statusText: { type: String, default: 'Ready' },
     modelErrorMessage: { type: String, default: '' },
@@ -72,6 +82,7 @@ defineProps({
 defineEmits([
     'update:modelValue',
     'update:capabilityFilter',
+    'update:responseStyle',
     'open-search',
     'share',
 ]);
