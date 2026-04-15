@@ -55,6 +55,39 @@
                         {{ item.label }}
                     </button>
                     </nav>
+                    <p class="mt-4 px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Quick links</p>
+                    <div class="space-y-1">
+                        <a
+                            href="https://app.suganta.com/profile"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="block rounded-lg px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/70 hover:text-white"
+                        >
+                            Profile
+                        </a>
+                        <a
+                            href="https://app.suganta.com/subscriptions?s_type=3"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="block rounded-lg px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/70 hover:text-white"
+                        >
+                            Plan & Subscription
+                        </a>
+                        <a
+                            href="https://app.suganta.com/support-tickets"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="block rounded-lg px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/70 hover:text-white"
+                        >
+                            Support
+                        </a>
+                        <RouterLink
+                            to="/contact"
+                            class="block rounded-lg px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800/70 hover:text-white"
+                        >
+                            Contact & Feedback
+                        </RouterLink>
+                    </div>
                 </div>
                 <div class="shrink-0 border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
                     {{ overview.usage?.total_tokens ?? 0 }} / {{ overview.usage?.token_limit ?? 10000 }} tokens
