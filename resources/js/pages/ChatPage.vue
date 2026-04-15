@@ -276,6 +276,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { showErrorAlert } from '../utils/alerts';
 
 const route = useRoute();
 const router = useRouter();
@@ -447,6 +448,7 @@ async function loadBootstrapData() {
     } catch (error) {
         modelErrorMessage.value = 'Unable to load models. Please refresh or try again shortly.';
         statusText.value = error.message || 'Failed to load data';
+        showErrorAlert(statusText.value, 'Failed to load chat data');
     }
 }
 
@@ -473,6 +475,7 @@ async function openConversation(conversationId, syncRoute = true) {
         await scrollMessagesToBottom();
     } catch (error) {
         statusText.value = error.message || 'Failed to load conversation';
+        showErrorAlert(statusText.value, 'Conversation load failed');
     }
 }
 
@@ -530,6 +533,7 @@ async function runSearchFromDatabase(query) {
         }
         searchResults.value = [];
         searchError.value = error.message || 'Failed to search chat history';
+        showErrorAlert(searchError.value, 'Search failed');
     } finally {
         if (requestId === activeSearchRequestId) {
             searchLoading.value = false;
@@ -604,6 +608,7 @@ async function sendMessage() {
             ? (error.message || 'Model error. Please choose another model and try again.')
             : modelErrorMessage.value;
         statusText.value = error.message || 'Failed to send message';
+        showErrorAlert(chatErrorMessage.value, 'Chat request failed');
     } finally {
         sending.value = false;
     }
@@ -644,6 +649,7 @@ async function onFilePicked(event) {
             attachments.value.push(item);
         } catch {
             chatErrorMessage.value = `Unable to read file: ${file.name}`;
+            showErrorAlert(chatErrorMessage.value, 'File read failed');
         }
     }
 
@@ -709,6 +715,7 @@ async function openAsset(asset, forceDownload = false) {
         }
     } catch (error) {
         chatErrorMessage.value = error.message || 'Failed to open uploaded asset.';
+        showErrorAlert(chatErrorMessage.value, 'Asset open failed');
     } finally {
         assetActionLoadingId.value = null;
     }
@@ -717,6 +724,7 @@ async function openAsset(asset, forceDownload = false) {
 function toggleMic() {
     if (!speechSupported) {
         chatErrorMessage.value = 'Voice input is not supported in this browser.';
+        showErrorAlert(chatErrorMessage.value, 'Microphone unavailable');
         return;
     }
 
@@ -748,6 +756,7 @@ function toggleMic() {
             } else {
                 chatErrorMessage.value = 'Microphone error. Please check mic permission.';
             }
+            showErrorAlert(chatErrorMessage.value, 'Microphone error');
             listening.value = false;
         };
         recognition.onend = () => {
@@ -761,6 +770,7 @@ function toggleMic() {
         listening.value = true;
     } catch {
         chatErrorMessage.value = 'Unable to start microphone. Please allow mic permission and try again.';
+        showErrorAlert(chatErrorMessage.value, 'Microphone start failed');
         listening.value = false;
     }
 }
@@ -806,6 +816,7 @@ async function loadConversationListInternal(reset = false) {
         historyPage.value = pageToLoad + 1;
     } catch (error) {
         statusText.value = error.message || 'Failed to load conversation history';
+        showErrorAlert(statusText.value, 'Conversation history failed');
     } finally {
         historyLoading.value = false;
     }

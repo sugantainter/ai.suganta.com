@@ -199,6 +199,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { showErrorAlert } from '../utils/alerts';
 
 const overview = ref({});
 const providerKeys = ref([]);
@@ -342,6 +343,7 @@ async function updateProfile() {
         await loadOverview();
     } catch (error) {
         profileStatusText.value = error.message || 'Failed to update profile';
+        showErrorAlert(profileStatusText.value, 'Profile update failed');
     } finally {
         profileSaving.value = false;
     }
@@ -367,6 +369,7 @@ async function saveProviderKey() {
         statusText.value = `Saved key for ${provider.value}`;
     } catch (error) {
         statusText.value = error.message || 'Failed to save provider key';
+        showErrorAlert(statusText.value, 'Provider key save failed');
     } finally {
         saving.value = false;
     }
@@ -386,6 +389,7 @@ async function removeProviderKey(providerName) {
         await loadProviderKeys();
     } catch (error) {
         statusText.value = error.message || `Failed to remove key for ${providerName}`;
+        showErrorAlert(statusText.value, 'Provider key remove failed');
     } finally {
         removingProvider.value = '';
     }
@@ -411,6 +415,7 @@ async function updatePassword() {
         passwordStatusText.value = data.message || 'Password updated successfully.';
     } catch (error) {
         passwordStatusText.value = error.message || 'Failed to update password';
+        showErrorAlert(passwordStatusText.value, 'Password update failed');
     } finally {
         passwordSaving.value = false;
     }
@@ -457,6 +462,7 @@ onMounted(async () => {
         statusText.value = 'Ready';
     } catch (error) {
         statusText.value = error.message || 'Failed to load settings';
+        showErrorAlert(statusText.value, 'Settings load failed');
     }
 
     window.addEventListener('scroll', updateActiveSectionFromViewport, { passive: true });
