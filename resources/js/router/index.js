@@ -29,6 +29,18 @@ const routes = [
         },
     },
     {
+        path: '/share/:shareToken',
+        name: 'chat.shared',
+        component: () => import('../pages/SharedChatPage.vue'),
+        meta: {
+            title: 'Shared Chat - SuGanta AI',
+            description: 'View a shared SuGanta AI conversation without login.',
+            keywords: 'shared ai chat, public ai conversation, suganta ai',
+            robots: 'index, follow',
+            ogType: 'article',
+        },
+    },
+    {
         path: '/:pathMatch(.*)*',
         redirect: '/',
     },
@@ -68,13 +80,23 @@ router.afterEach((to) => {
         to.meta?.description
             || 'Chat with top AI models in one place using SuGanta AI.'
     );
+    const keywords = String(
+        to.meta?.keywords
+            || 'AI chat, unified AI API, OpenAI, Gemini, Anthropic, multi model chat, SaaS AI platform'
+    );
+    const robots = String(to.meta?.robots || 'index, follow');
+    const ogType = String(to.meta?.ogType || 'website');
     const canonicalUrl = `${window.location.origin}${to.fullPath}`;
 
     document.title = title;
     setMetaTag('meta[name="description"]', 'name', 'description', description);
+    setMetaTag('meta[name="keywords"]', 'name', 'keywords', keywords);
+    setMetaTag('meta[name="robots"]', 'name', 'robots', robots);
+    setMetaTag('meta[property="og:type"]', 'property', 'og:type', ogType);
     setMetaTag('meta[property="og:title"]', 'property', 'og:title', title);
     setMetaTag('meta[property="og:description"]', 'property', 'og:description', description);
     setMetaTag('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
+    setMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
     setMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', title);
     setMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', description);
     setCanonical(canonicalUrl);

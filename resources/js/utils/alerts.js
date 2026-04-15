@@ -1,7 +1,31 @@
-import Swal from 'sweetalert2';
-
 let lastErrorSignature = '';
 let lastErrorAt = 0;
+let swalLoaderPromise = null;
+
+function loadSweetAlertFromCdn() {
+    if (typeof window === 'undefined') {
+        return Promise.resolve(null);
+    }
+
+    if (window.Swal) {
+        return Promise.resolve(window.Swal);
+    }
+
+    if (swalLoaderPromise) {
+        return swalLoaderPromise;
+    }
+
+    swalLoaderPromise = new Promise((resolve) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js';
+        script.async = true;
+        script.onload = () => resolve(window.Swal || null);
+        script.onerror = () => resolve(null);
+        document.head.appendChild(script);
+    });
+
+    return swalLoaderPromise;
+}
 
 export async function showErrorAlert(message, title = 'Something went wrong') {
     const normalizedMessage = String(message || 'An unexpected error occurred.');
@@ -16,7 +40,15 @@ export async function showErrorAlert(message, title = 'Something went wrong') {
     lastErrorSignature = signature;
     lastErrorAt = now;
 
-    await Swal.fire({
+    const swal = await loadSweetAlertFromCdn();
+    if (!swal || typeof swal.fire !== 'function') {
+        if (typeof window !== 'undefined') {
+            window.alert(`${title}\n\n${normalizedMessage}`);
+        }
+        return;
+    }
+
+    await swal.fire({
         icon: 'error',
         title,
         text: normalizedMessage,

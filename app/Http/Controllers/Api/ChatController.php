@@ -114,6 +114,40 @@ class ChatController extends Controller
         return response()->json($this->chatService->searchConversationHistories($tenantId, $query, $limit, $page));
     }
 
+    public function share(int $conversationId, Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $result = $this->chatService->createConversationShareLink($tenantId, $conversationId);
+        if ($result['conversation'] === null) {
+            return response()->json([
+                'message' => 'Conversation not found.',
+            ], 404);
+        }
+
+        $token = (string) ($result['share_token'] ?? '');
+        $baseUrl = rtrim((string) config('app.url', $request->getSchemeAndHttpHost()), '/');
+
+        return response()->json([
+            'conversation' => $result['conversation'],
+            'share_token' => $token,
+            'share_url' => "{$baseUrl}/share/{$token}",
+            'share_enabled' => (bool) ($result['share_enabled'] ?? false),
+        ]);
+    }
+
+    public function sharedHistory(string $shareToken, Request $request): JsonResponse
+    {
+        $limit = (int) $request->integer('limit', 200);
+        $data = $this->chatService->getSharedConversationHistory($shareToken, $limit);
+        if ($data['conversation'] === null) {
+            return response()->json([
+                'message' => 'Shared conversation not found.',
+            ], 404);
+        }
+
+        return response()->json($data);
+    }
+
     public function usage(Request $request): JsonResponse
     {
         $tenantId = (int) $request->attributes->get('tenant_id');

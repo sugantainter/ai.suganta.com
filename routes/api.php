@@ -5,12 +5,19 @@ use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')
+    ->middleware(['throttle:ai-chat'])
+    ->group(function (): void {
+        Route::get('/public/chat/share/{shareToken}', [ChatController::class, 'sharedHistory']);
+    });
+
+Route::prefix('v1')
     ->middleware(['api.key.auth', 'throttle:ai-chat'])
     ->group(function (): void {
         Route::post('/chat', [ChatController::class, 'chat']);
         Route::get('/chat/histories', [ChatController::class, 'histories']);
         Route::get('/chat/histories/search', [ChatController::class, 'searchHistories']);
         Route::get('/chat/history/{conversationId}', [ChatController::class, 'history']);
+        Route::post('/chat/history/{conversationId}/share', [ChatController::class, 'share']);
         Route::get('/chat/history/{conversationId}/assets', [ChatController::class, 'assets']);
         Route::get('/chat/history/{conversationId}/assets/{assetId}/signed-url', [ChatController::class, 'signedAssetUrl']);
         Route::get('/chat/history/{conversationId}/assets/{assetId}/download', [ChatController::class, 'downloadAsset'])

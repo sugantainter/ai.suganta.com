@@ -12,6 +12,7 @@ use App\Models\ProviderCredential;
 use App\Models\RequestLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class UnifiedChatService
 {
@@ -116,6 +117,99 @@ class UnifiedChatService
         return [
             'conversation' => (array) $conversation,
             'messages' => $messages->map(fn ($message) => (array) $message)->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function createConversationShareLink(int $tenantId, int $conversationId): array
+    {
+        $conversation = AiConversation::query()
+            ->where('id', $conversationId)
+            ->where('user_id', $tenantId)
+            ->first();
+
+        if (! $conversation) {
+            return [
+                'conversation' => null,
+                'share_token' => null,
+                'share_enabled' => false,
+            ];
+        }
+
+        $shareToken = (string) ($conversation->share_token ?? '');
+        if ($shareToken === '') {
+            $shareToken = Str::random(48);
+        }
+
+        $conversation->forceFill([
+            'is_share_enabled' => true,
+            'share_token' => $shareToken,
+            'share_expires_at' => null,
+        ])->save();
+
+        return [
+            'conversation' => [
+                'id' => (int) $conversation->id,
+                'subject' => (string) ($conversation->subject ?? ''),
+            ],
+            'share_token' => $shareToken,
+            'share_enabled' => true,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function getSharedConversationHistory(string $shareToken, int $limit = 100): array
+    {
+        $token = trim($shareToken);
+        if ($token === '') {
+            return [
+                'conversation' => null,
+                'messages' => [],
+            ];
+        }
+
+        $connection = DB::connection((string) config('ai.history_connection'));
+        $conversation = $connection->table('ai_conversations')
+            ->where('share_token', $token)
+            ->where('is_share_enabled', true)
+            ->where(function ($query): void {
+                $query->whereNull('share_expires_at')
+                    ->orWhere('share_expires_at', '>', now());
+            })
+            ->first();
+
+        if (! $conversation) {
+            return [
+                'conversation' => null,
+                'messages' => [],
+            ];
+        }
+
+        $messages = $connection->table('ai_messages')
+            ->where('ai_conversation_id', (int) $conversation->id)
+            ->orderBy('id', 'desc')
+            ->limit(max(1, $limit))
+            ->get()
+            ->reverse()
+            ->values();
+
+        return [
+            'conversation' => [
+                'id' => (int) $conversation->id,
+                'subject' => (string) ($conversation->subject ?? ''),
+                'model' => (string) ($conversation->model ?? ''),
+                'last_used_at' => (string) ($conversation->last_used_at ?? ''),
+                'share_enabled' => true,
+            ],
+            'messages' => $messages->map(fn ($message): array => [
+                'role' => (string) ($message->role ?? 'assistant'),
+                'content' => (string) ($message->content ?? ''),
+                'created_at' => (string) ($message->created_at ?? ''),
+            ])->values()->all(),
         ];
     }
 

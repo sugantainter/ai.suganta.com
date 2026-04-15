@@ -1,7 +1,7 @@
 <template>
     <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
-        <div class="grid h-full min-h-0 md:grid-cols-[260px_1fr]">
-            <aside class="hidden h-full min-h-0 flex-col border-r border-zinc-800 bg-[#171717] md:flex">
+        <div class="grid h-full min-h-0" :class="isSharedView ? 'grid-cols-1' : 'md:grid-cols-[260px_1fr]'">
+            <aside v-if="!isSharedView" class="hidden h-full min-h-0 flex-col border-r border-zinc-800 bg-[#171717] md:flex">
                 <div class="shrink-0 space-y-3 border-b border-zinc-800 p-3">
                     <a
                         href="https://www.suganta.com"
@@ -76,36 +76,58 @@
 
             <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
                 <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
-                    <div class="flex items-center gap-2">
-                    <button
-                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
-                        @click="openSearchModal"
-                    >
-                        Search
-                    </button>
-                    <select
-                        v-model="model"
-                        :disabled="modelOptions.length === 0"
-                        class="max-w-[260px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                    >
-                        <option v-for="item in modelOptions" :key="item.model" :value="item.model">
-                            {{ item.display_name }}
-                        </option>
-                    </select>
-                    <select
-                        v-model="capabilityFilter"
-                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                    >
-                        <option value="all">All</option>
-                        <option value="vision">Vision</option>
-                        <option value="reasoning">Reasoning</option>
-                        <option value="web_search">Web search</option>
-                        <option value="tools">Tools</option>
-                    </select>
-                    <p class="ml-auto text-xs text-zinc-500">{{ statusText }}</p>
+                    <div v-if="isSharedView" class="flex items-center justify-between gap-2">
+                        <div>
+                            <p class="text-sm font-semibold text-zinc-100">Shared conversation</p>
+                            <p class="text-xs text-zinc-500">View only mode</p>
+                        </div>
+                        <a
+                            href="/"
+                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                        >
+                            Login
+                        </a>
+                    </div>
+                    <div v-else class="flex items-center gap-2">
+                        <button
+                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
+                            @click="openSearchModal"
+                        >
+                            Search
+                        </button>
+                        <select
+                            v-model="model"
+                            :disabled="modelOptions.length === 0"
+                            class="max-w-[260px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                        >
+                            <option v-for="item in modelOptions" :key="item.model" :value="item.model">
+                                {{ item.display_name }}
+                            </option>
+                        </select>
+                        <select
+                            v-model="capabilityFilter"
+                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                        >
+                            <option value="all">All</option>
+                            <option value="vision">Vision</option>
+                            <option value="reasoning">Reasoning</option>
+                            <option value="web_search">Web search</option>
+                            <option value="tools">Tools</option>
+                        </select>
+                        <button
+                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                            :disabled="shareLoading || !currentConversationId"
+                            @click="shareConversation"
+                        >
+                            {{ shareLoading ? 'Sharing...' : 'Share' }}
+                        </button>
+                        <p class="ml-auto text-xs text-zinc-500">{{ statusText }}</p>
                     </div>
                     <p v-if="modelErrorMessage" class="mt-2 text-xs text-red-400">
                         {{ modelErrorMessage }}
+                    </p>
+                    <p v-if="sharedUrlText && !isSharedView" class="mt-2 truncate text-xs text-emerald-400">
+                        Share link: {{ sharedUrlText }}
                     </p>
                 </div>
 
@@ -124,6 +146,10 @@
                             >
                                 {{ message.content }}
                             </div>
+                        </div>
+                        <div v-if="isSharedView" class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
+                            <p>Login to access more features and continue this chat.</p>
+                            <a href="/" class="mt-2 inline-block text-xs text-emerald-400 hover:text-emerald-300">Login to continue</a>
                         </div>
                     </div>
                     <div v-else class="flex h-full items-center justify-center px-5">
@@ -180,7 +206,7 @@
                             {{ chatErrorMessage }}
                         </div>
                         <div class="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2">
-                            <div v-if="attachments.length" class="mb-3 flex flex-wrap gap-2">
+                            <div v-if="attachments.length && !isSharedView" class="mb-3 flex flex-wrap gap-2">
                                 <div
                                     v-for="item in attachments"
                                     :key="`${item.name}-${item.size}`"
@@ -220,6 +246,7 @@
                                 <button
                                     class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
                                     type="button"
+                                    :disabled="isSharedView"
                                     @click="openFilePicker"
                                     title="Upload files"
                                 >
@@ -228,16 +255,18 @@
                                     </svg>
                                 </button>
                                 <textarea
+                                    ref="composerInputRef"
                                     v-model="inputMessage"
                                     rows="1"
+                                    :disabled="isSharedView"
                                     class="max-h-40 min-h-9 w-full resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
-                                    placeholder="Ask anything"
+                                    :placeholder="isSharedView ? 'Login to continue this chat' : 'Ask anything'"
                                     @keydown.enter.exact.prevent="sendMessage"
                                 />
                                 <button
                                     class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-60"
                                     type="button"
-                                    :disabled="!speechSupported"
+                                    :disabled="isSharedView || !speechSupported"
                                     @click="toggleMic"
                                     :title="listening ? 'Stop microphone' : 'Use microphone'"
                                 >
@@ -247,7 +276,7 @@
                                 </button>
                                 <button
                                     class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                    :disabled="sending || (!inputMessage.trim() && attachments.length === 0)"
+                                    :disabled="isSharedView || sending || (!inputMessage.trim() && attachments.length === 0)"
                                     @click="sendMessage"
                                     :title="sending ? 'Sending' : 'Send message'"
                                 >
@@ -289,8 +318,11 @@
                         <p class="truncate text-sm font-medium text-zinc-100">{{ conversation.subject || 'Untitled chat' }}</p>
                         <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
                     </button>
-                    <p v-if="!searchLoading && !searchError && !searchQuery.trim()" class="px-3 py-3 text-sm text-zinc-500">
-                        Type to search chats from database.
+                    <p v-if="!searchLoading && !searchError && !searchQuery.trim() && !filteredConversations.length" class="px-3 py-3 text-sm text-zinc-500">
+                        No previous chats found yet.
+                    </p>
+                    <p v-else-if="!searchLoading && !searchError && !searchQuery.trim()" class="px-3 py-3 text-sm text-zinc-500">
+                        Select any previous chat to continue the conversation.
                     </p>
                     <p v-else-if="!searchLoading && !searchError && searchQuery.trim() && !filteredConversations.length" class="px-3 py-3 text-sm text-zinc-500">
                         No matching chats found.
@@ -310,6 +342,7 @@ const route = useRoute();
 const router = useRouter();
 const messageContainerRef = ref(null);
 const fileInputRef = ref(null);
+const composerInputRef = ref(null);
 
 const conversations = ref([]);
 const messages = ref([]);
@@ -341,12 +374,16 @@ const assetActionLoadingId = ref(null);
 const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyHasMore = ref(true);
+const shareLoading = ref(false);
+const sharedUrlText = ref('');
 const SpeechRecognitionCtor = typeof window !== 'undefined'
     ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
     : null;
 const speechSupported = Boolean(SpeechRecognitionCtor);
 const listening = ref(false);
 let recognition = null;
+const isSharedView = computed(() => route.name === 'chat.shared');
+const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
 
 const modelOptions = computed(() => {
     if (capabilityFilter.value === 'all') {
@@ -367,9 +404,19 @@ const modelOptions = computed(() => {
     return models.value;
 });
 
-const filteredConversations = computed(() => searchResults.value);
+const filteredConversations = computed(() => {
+    if (!searchQuery.value.trim()) {
+        return conversations.value;
+    }
+    return searchResults.value;
+});
 
 watch([capabilityFilter, models], () => {
+    if (isSharedView.value) {
+        modelErrorMessage.value = '';
+        return;
+    }
+
     if (!modelOptions.value.some((item) => item.model === model.value)) {
         model.value = modelOptions.value[0]?.model ?? '';
         if (models.value.length > 0 && model.value === '') {
@@ -428,6 +475,10 @@ function parseConversationId(value) {
 }
 
 async function syncConversationRoute(conversationId) {
+    if (isSharedView.value) {
+        return;
+    }
+
     const parsed = parseConversationId(conversationId);
     if (parsed === null) {
         if (route.name !== 'chat.home') {
@@ -452,7 +503,16 @@ async function scrollMessagesToBottom() {
     el.scrollTop = el.scrollHeight;
 }
 
+async function focusComposer() {
+    await nextTick();
+    composerInputRef.value?.focus();
+}
+
 async function loadBootstrapData() {
+    if (isSharedView.value) {
+        return;
+    }
+
     statusText.value = 'Loading...';
     modelErrorMessage.value = '';
     try {
@@ -481,6 +541,10 @@ async function loadBootstrapData() {
 }
 
 async function openConversation(conversationId, syncRoute = true) {
+    if (isSharedView.value) {
+        return;
+    }
+
     const parsedConversationId = parseConversationId(conversationId);
     if (parsedConversationId === null) {
         return;
@@ -501,6 +565,7 @@ async function openConversation(conversationId, syncRoute = true) {
         await loadConversationAssets(parsedConversationId);
         statusText.value = 'Conversation loaded';
         await scrollMessagesToBottom();
+        await focusComposer();
     } catch (error) {
         statusText.value = error.message || 'Failed to load conversation';
         showErrorAlert(statusText.value, 'Conversation load failed');
@@ -508,6 +573,10 @@ async function openConversation(conversationId, syncRoute = true) {
 }
 
 async function startNewChat() {
+    if (isSharedView.value) {
+        return;
+    }
+
     currentConversationId.value = null;
     messages.value = [];
     conversationAssets.value = [];
@@ -515,9 +584,14 @@ async function startNewChat() {
     chatErrorMessage.value = '';
     await syncConversationRoute(null);
     statusText.value = 'New chat started';
+    await focusComposer();
 }
 
 function openSearchModal() {
+    if (isSharedView.value) {
+        return;
+    }
+
     searchQuery.value = '';
     searchResults.value = [];
     searchError.value = '';
@@ -540,7 +614,7 @@ async function openConversationFromSearch(conversationId) {
 async function runSearchFromDatabase(query) {
     const trimmed = String(query ?? '').trim();
     if (trimmed === '') {
-        searchResults.value = [];
+        searchResults.value = conversations.value;
         searchLoading.value = false;
         searchError.value = '';
         return;
@@ -570,6 +644,11 @@ async function runSearchFromDatabase(query) {
 }
 
 async function sendMessage() {
+    if (isSharedView.value) {
+        await showErrorAlert('Please login to continue this conversation with full features.', 'Login required');
+        return;
+    }
+
     const text = inputMessage.value.trim();
     if ((!text && attachments.value.length === 0) || sending.value) {
         return;
@@ -643,6 +722,10 @@ async function sendMessage() {
 }
 
 function openFilePicker() {
+    if (isSharedView.value) {
+        return;
+    }
+
     fileInputRef.value?.click();
 }
 
@@ -750,6 +833,10 @@ async function openAsset(asset, forceDownload = false) {
 }
 
 function toggleMic() {
+    if (isSharedView.value) {
+        return;
+    }
+
     if (!speechSupported) {
         chatErrorMessage.value = 'Voice input is not supported in this browser.';
         showErrorAlert(chatErrorMessage.value, 'Microphone unavailable');
@@ -800,6 +887,73 @@ function toggleMic() {
         chatErrorMessage.value = 'Unable to start microphone. Please allow mic permission and try again.';
         showErrorAlert(chatErrorMessage.value, 'Microphone start failed');
         listening.value = false;
+    }
+}
+
+async function shareConversation() {
+    if (!currentConversationId.value || shareLoading.value || isSharedView.value) {
+        return;
+    }
+
+    shareLoading.value = true;
+    try {
+        const data = await apiRequest(`/api/v1/chat/history/${currentConversationId.value}/share`, {
+            method: 'POST',
+        });
+        const shareUrl = String(data.share_url ?? '');
+        sharedUrlText.value = shareUrl;
+        if (shareUrl !== '' && navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            statusText.value = 'Share link copied to clipboard';
+        } else if (shareUrl !== '') {
+            statusText.value = 'Share link created';
+        }
+    } catch (error) {
+        const message = error?.message || 'Failed to create share link.';
+        statusText.value = message;
+        showErrorAlert(message, 'Share failed');
+    } finally {
+        shareLoading.value = false;
+    }
+}
+
+async function loadSharedConversation(shareToken) {
+    const token = String(shareToken ?? '').trim();
+    if (token === '') {
+        messages.value = [];
+        statusText.value = 'Shared conversation not found';
+        return;
+    }
+
+    sending.value = false;
+    searchModalOpen.value = false;
+    currentConversationId.value = null;
+    conversations.value = [];
+    conversationAssets.value = [];
+    attachments.value = [];
+    statusText.value = 'Loading shared conversation...';
+    chatErrorMessage.value = '';
+    modelErrorMessage.value = '';
+    try {
+        const data = await apiRequest(`/api/v1/public/chat/share/${encodeURIComponent(token)}?limit=200`, {
+            credentials: 'omit',
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+        messages.value = (data.messages ?? []).map((item) => ({
+            role: item.role,
+            content: item.content,
+        }));
+        if (data.conversation?.model) {
+            model.value = String(data.conversation.model);
+        }
+        statusText.value = 'Shared conversation loaded';
+        await scrollMessagesToBottom();
+    } catch (error) {
+        messages.value = [];
+        statusText.value = error?.message || 'Unable to load shared conversation.';
+        showErrorAlert(statusText.value, 'Shared chat unavailable');
     }
 }
 
@@ -864,6 +1018,10 @@ function handleHistoryScroll(event) {
 }
 
 watch(searchQuery, (value) => {
+    if (isSharedView.value) {
+        return;
+    }
+
     if (!searchModalOpen.value) {
         return;
     }
@@ -874,7 +1032,7 @@ watch(searchQuery, (value) => {
 
     const trimmed = String(value ?? '').trim();
     if (trimmed === '') {
-        searchResults.value = [];
+        searchResults.value = conversations.value;
         searchLoading.value = false;
         searchError.value = '';
         return;
@@ -895,6 +1053,11 @@ onBeforeUnmount(() => {
 });
 
 onMounted(() => {
+    if (isSharedView.value) {
+        loadSharedConversation(shareTokenFromRoute.value);
+        return;
+    }
+
     loadBootstrapData().then(async () => {
         const conversationIdFromRoute = parseConversationId(route.params.conversationId);
         if (conversationIdFromRoute !== null) {
@@ -906,6 +1069,10 @@ onMounted(() => {
 watch(
     () => route.params.conversationId,
     async (value) => {
+        if (isSharedView.value) {
+            return;
+        }
+
         const conversationIdFromRoute = parseConversationId(value);
         if (conversationIdFromRoute === null) {
             if (currentConversationId.value !== null || messages.value.length > 0) {
@@ -922,6 +1089,16 @@ watch(
         }
 
         await openConversation(conversationIdFromRoute, false);
+    }
+);
+
+watch(
+    () => route.params.shareToken,
+    async (value) => {
+        if (!isSharedView.value) {
+            return;
+        }
+        await loadSharedConversation(value);
     }
 );
 </script>

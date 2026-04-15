@@ -15,6 +15,9 @@ class AiConversation extends Model
         'model',
         'purpose',
         'settings',
+        'is_share_enabled',
+        'share_token',
+        'share_expires_at',
         'total_prompt_tokens',
         'total_completion_tokens',
         'total_tokens',
@@ -25,6 +28,8 @@ class AiConversation extends Model
 
     protected $casts = [
         'settings' => 'array',
+        'is_share_enabled' => 'boolean',
+        'share_expires_at' => 'datetime',
         'last_used_at' => 'datetime',
     ];
 

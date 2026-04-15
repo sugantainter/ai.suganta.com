@@ -9,6 +9,8 @@ Route::get('/', [SpaController::class, 'index'])
 Route::get('/settings', [SpaController::class, 'settings'])
     ->middleware('auth.check');
 
+Route::get('/share/{shareToken}', [SpaController::class, 'fallback']);
+
 Route::get('/{any}', [SpaController::class, 'fallback'])
     ->middleware('auth.check')
     ->where('any', '^(?!sanctum).*$');

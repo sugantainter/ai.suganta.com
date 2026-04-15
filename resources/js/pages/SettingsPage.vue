@@ -33,7 +33,7 @@
                     </div>
                 </div>
                 <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
-                    <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Settings</p>
+                    <p class="px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Settings</p>
                     <nav class="space-y-1">
                     <button
                         v-for="item in menuItems"
@@ -49,19 +49,26 @@
                     </button>
                     </nav>
                 </div>
+                <div class="shrink-0 border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
+                    {{ overview.usage?.total_tokens ?? 0 }} / {{ overview.usage?.token_limit ?? 10000 }} tokens
+                </div>
             </aside>
 
-            <section ref="settingsScrollRef" class="hide-scrollbar min-h-0 overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
-                <div class="mb-3 flex items-center justify-between md:hidden">
-                    <p class="text-sm font-medium text-zinc-200">Settings</p>
-                    <RouterLink
-                        to="/"
-                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200"
-                    >
-                        Back to chat
-                    </RouterLink>
+            <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
+                <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-sm font-medium text-zinc-200">Settings</p>
+                        <p class="hidden text-xs text-zinc-500 md:block">{{ statusText }}</p>
+                        <RouterLink
+                            to="/"
+                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 md:hidden"
+                        >
+                            Back to chat
+                        </RouterLink>
+                    </div>
                 </div>
-                <div class="space-y-4">
+                <div ref="settingsScrollRef" class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
+                    <div class="space-y-4">
                 <div id="settings-section-general" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
                     <div class="flex flex-wrap items-center gap-3">
                         <img
@@ -234,6 +241,7 @@
                         </div>
                     </div>
                 </div>
+                    </div>
                 </div>
             </section>
         </div>
