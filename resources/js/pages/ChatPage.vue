@@ -1,8 +1,8 @@
 <template>
-    <div class="h-screen bg-[#0f0f0f] text-zinc-100">
-        <div class="grid h-full md:grid-cols-[260px_1fr]">
-            <aside class="hidden h-full flex-col border-r border-zinc-800 bg-[#171717] md:flex">
-                <div class="space-y-2 border-b border-zinc-800 p-3">
+    <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
+        <div class="grid h-full min-h-0 md:grid-cols-[260px_1fr]">
+            <aside class="hidden h-full min-h-0 flex-col border-r border-zinc-800 bg-[#171717] md:flex">
+                <div class="shrink-0 space-y-2 border-b border-zinc-800 p-3">
                     <button
                         class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
                         @click="startNewChat"
@@ -18,7 +18,7 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-auto px-2 py-2" @scroll="handleHistoryScroll">
+                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" @scroll="handleHistoryScroll">
                     <p class="px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Recent chats</p>
 
                     <button
@@ -41,13 +41,14 @@
                     </p>
                 </div>
 
-                <div class="border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
+                <div class="shrink-0 border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
                     {{ usage.total_tokens ?? 0 }} / {{ usage.token_limit ?? 10000 }} tokens
                 </div>
             </aside>
 
-            <section class="flex h-full min-h-0 flex-col bg-[#212121]">
-                <div class="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
+            <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
+                <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
+                    <div class="flex items-center gap-2">
                     <button
                         class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
                         @click="openSearchModal"
@@ -56,6 +57,7 @@
                     </button>
                     <select
                         v-model="model"
+                        :disabled="modelOptions.length === 0"
                         class="max-w-[260px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
                     >
                         <option v-for="item in modelOptions" :key="item.model" :value="item.model">
@@ -73,9 +75,13 @@
                         <option value="tools">Tools</option>
                     </select>
                     <p class="ml-auto text-xs text-zinc-500">{{ statusText }}</p>
+                    </div>
+                    <p v-if="modelErrorMessage" class="mt-2 text-xs text-red-400">
+                        {{ modelErrorMessage }}
+                    </p>
                 </div>
 
-                <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-auto">
+                <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     <div v-if="messages.length" class="mx-auto w-full max-w-3xl px-4 py-8">
                         <div
                             v-for="(message, index) in messages"
@@ -103,7 +109,7 @@
                     </div>
                 </div>
 
-                <div class="border-t border-zinc-800 bg-[#212121] px-4 py-4">
+                <div class="shrink-0 border-t border-zinc-800 bg-[#212121] px-4 py-4">
                     <div class="mx-auto w-full max-w-3xl">
                         <div class="rounded-3xl border border-zinc-700 bg-zinc-900 px-4 py-3">
                             <textarea
@@ -197,6 +203,7 @@ const capabilityFilter = ref('all');
 const inputMessage = ref('');
 const sending = ref(false);
 const statusText = ref('Ready');
+const modelErrorMessage = ref('');
 const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyHasMore = ref(true);
@@ -225,6 +232,13 @@ const filteredConversations = computed(() => searchResults.value);
 watch([capabilityFilter, models], () => {
     if (!modelOptions.value.some((item) => item.model === model.value)) {
         model.value = modelOptions.value[0]?.model ?? '';
+        if (models.value.length > 0 && model.value === '') {
+            modelErrorMessage.value = 'No models match the selected capability filter.';
+        } else if (models.value.length === 0) {
+            modelErrorMessage.value = 'No models are available for your account right now.';
+        } else {
+            modelErrorMessage.value = '';
+        }
     }
 });
 
@@ -298,6 +312,7 @@ async function scrollMessagesToBottom() {
 
 async function loadBootstrapData() {
     statusText.value = 'Loading...';
+    modelErrorMessage.value = '';
     try {
         const [usageData, modelData] = await Promise.all([
             apiRequest('/api/v1/usage'),
@@ -306,13 +321,18 @@ async function loadBootstrapData() {
 
         usage.value = usageData ?? { total_tokens: 0, recent_requests: [] };
         models.value = modelData.models ?? [];
+        if (models.value.length === 0) {
+            modelErrorMessage.value = 'No models are available right now. Please try again later.';
+        }
         await loadConversationList(true);
         const first = modelOptions.value[0];
         if (first) {
             model.value = first.model;
+            modelErrorMessage.value = '';
         }
         statusText.value = 'Ready';
     } catch (error) {
+        modelErrorMessage.value = 'Unable to load models. Please refresh or try again shortly.';
         statusText.value = error.message || 'Failed to load data';
     }
 }
@@ -406,6 +426,12 @@ async function sendMessage() {
         return;
     }
 
+    if (!model.value) {
+        modelErrorMessage.value = 'Please select a model before sending your message.';
+        statusText.value = 'Model selection required';
+        return;
+    }
+
     const nextMessages = [...messages.value, { role: 'user', content: text }];
     messages.value = nextMessages;
     inputMessage.value = '';
@@ -439,6 +465,9 @@ async function sendMessage() {
         statusText.value = 'Response received';
         await scrollMessagesToBottom();
     } catch (error) {
+        modelErrorMessage.value = String(error.message || '').toLowerCase().includes('model')
+            ? (error.message || 'Model error. Please choose another model and try again.')
+            : modelErrorMessage.value;
         statusText.value = error.message || 'Failed to send message';
     } finally {
         sending.value = false;
