@@ -458,6 +458,18 @@ class UnifiedChatService
     {
         $totalUsage = $this->getOrCreateUsageState($tenantId);
         $requests = RequestLog::query()
+            ->select([
+                'id',
+                'tenant_id',
+                'provider',
+                'model',
+                'status',
+                'latency_ms',
+                'prompt_tokens',
+                'completion_tokens',
+                'total_tokens',
+                'created_at',
+            ])
             ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->limit(20)
