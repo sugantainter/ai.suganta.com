@@ -6,10 +6,20 @@
 
             <div class="mt-5 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                 <h3 class="text-sm font-semibold text-zinc-200">Authenticated User</h3>
+                <div v-if="overview.auth_user_display?.avatar" class="pb-1">
+                    <img
+                        :src="overview.auth_user_display.avatar"
+                        alt="Profile"
+                        class="h-14 w-14 rounded-full border border-zinc-700 object-cover"
+                    >
+                </div>
                 <div class="text-sm text-zinc-300">
                     <p><span class="text-zinc-500">Tenant ID:</span> {{ overview.tenant_id ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Name:</span> {{ overview.auth_user?.name ?? overview.auth_user?.full_name ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Email:</span> {{ overview.auth_user?.email ?? '-' }}</p>
+                    <p><span class="text-zinc-500">Name:</span> {{ overview.auth_user_display?.name ?? '-' }}</p>
+                    <p><span class="text-zinc-500">Email:</span> {{ overview.auth_user_display?.email ?? '-' }}</p>
+                    <p><span class="text-zinc-500">Phone:</span> {{ overview.auth_user_display?.phone ?? '-' }}</p>
+                    <p><span class="text-zinc-500">Role:</span> {{ overview.auth_user_display?.role ?? '-' }}</p>
+                    <p><span class="text-zinc-500">Profile Completion:</span> {{ overview.auth_user_display?.completion_percentage ?? 0 }}%</p>
                 </div>
             </div>
 
@@ -69,6 +79,36 @@
                     </span>
                 </div>
             </div>
+
+            <div class="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+                <h3 class="text-sm font-semibold text-zinc-200">Update Password</h3>
+                <input
+                    v-model="passwordForm.current_password"
+                    type="password"
+                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                    placeholder="Current password"
+                />
+                <input
+                    v-model="passwordForm.password"
+                    type="password"
+                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                    placeholder="New password"
+                />
+                <input
+                    v-model="passwordForm.password_confirmation"
+                    type="password"
+                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                    placeholder="Confirm new password"
+                />
+                <button
+                    class="w-full rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white disabled:opacity-60"
+                    :disabled="passwordSaving || !canUpdatePassword"
+                    @click="updatePassword"
+                >
+                    {{ passwordSaving ? 'Updating...' : 'Update Password' }}
+                </button>
+                <p class="text-xs text-zinc-500">{{ passwordStatusText }}</p>
+            </div>
         </section>
     </div>
 </template>
@@ -82,9 +122,24 @@ const provider = ref('');
 const providerApiKey = ref('');
 const saving = ref(false);
 const statusText = ref('Ready');
+const passwordSaving = ref(false);
+const passwordStatusText = ref('Password strength: min 8 chars, include mix of character types.');
+const passwordForm = ref({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+});
 
 const providerOptions = computed(() => {
     return (providerKeys.value ?? []).map((item) => item.provider);
+});
+
+const canUpdatePassword = computed(() => {
+    return Boolean(
+        passwordForm.value.current_password &&
+        passwordForm.value.password &&
+        passwordForm.value.password_confirmation
+    );
 });
 
 async function apiRequest(path, options = {}) {
@@ -137,6 +192,31 @@ async function saveProviderKey() {
         statusText.value = error.message || 'Failed to save provider key';
     } finally {
         saving.value = false;
+    }
+}
+
+async function updatePassword() {
+    if (!canUpdatePassword.value) {
+        return;
+    }
+
+    passwordSaving.value = true;
+    try {
+        const data = await apiRequest('/api/v1/settings/password', {
+            method: 'PUT',
+            body: JSON.stringify(passwordForm.value),
+        });
+
+        passwordForm.value = {
+            current_password: '',
+            password: '',
+            password_confirmation: '',
+        };
+        passwordStatusText.value = data.message || 'Password updated successfully.';
+    } catch (error) {
+        passwordStatusText.value = error.message || 'Failed to update password';
+    } finally {
+        passwordSaving.value = false;
     }
 }
 

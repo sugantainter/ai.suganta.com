@@ -15,4 +15,6 @@ Route::prefix('v1')
         Route::get('/settings/overview', [SettingsController::class, 'overview']);
         Route::get('/provider-keys', [SettingsController::class, 'providerKeys']);
         Route::post('/provider-keys', [SettingsController::class, 'storeProviderKey']);
+        Route::put('/settings/password', [SettingsController::class, 'updatePassword']);
+        Route::patch('/settings/password', [SettingsController::class, 'updatePassword']);
     });

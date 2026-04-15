@@ -12,6 +12,8 @@ This API exposes unified endpoints for OpenAI, Gemini, Anthropic, Grok, DeepSeek
 - `GET /api/v1/settings/overview`
 - `GET /api/v1/provider-keys`
 - `POST /api/v1/provider-keys`
+- `PUT /api/v1/settings/password`
+- `PATCH /api/v1/settings/password`
 
 ## Request Body
 
@@ -95,6 +97,17 @@ Authenticated user can store tenant-scoped provider keys:
   "provider": "openai",
   "api_key": "sk-...",
   "is_active": true
+}
+```
+
+Password update proxy endpoint (integrated with `api.suganta.com/api` profile password API):
+
+- `PUT /api/v1/settings/password` or `PATCH /api/v1/settings/password`
+```json
+{
+  "current_password": "old-password",
+  "password": "NewStrongPassword@123",
+  "password_confirmation": "NewStrongPassword@123"
 }
 ```
 
