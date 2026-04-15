@@ -2,7 +2,35 @@
     <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
         <div class="grid h-full min-h-0 md:grid-cols-[260px_1fr]">
             <aside class="hidden h-full min-h-0 flex-col border-r border-zinc-800 bg-[#171717] md:flex">
-                <div class="shrink-0 space-y-2 border-b border-zinc-800 p-3">
+                <div class="shrink-0 space-y-3 border-b border-zinc-800 p-3">
+                    <a
+                        href="https://www.suganta.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/80 p-2 shadow-lg shadow-black/30"
+                    >
+                        <img
+                            src="/logo/Su250.png"
+                            alt="SuGanta"
+                            class="h-8 w-auto rounded-md"
+                        >
+                    </a>
+                    <div class="flex items-center rounded-lg border border-zinc-800 bg-zinc-900/70 p-1">
+                        <RouterLink
+                            to="/"
+                            class="w-full rounded-md px-3 py-1.5 text-center text-xs font-medium text-zinc-300 transition hover:text-white"
+                            active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                        >
+                            Chat
+                        </RouterLink>
+                        <RouterLink
+                            to="/settings"
+                            class="w-full rounded-md px-3 py-1.5 text-center text-xs font-medium text-zinc-300 transition hover:text-white"
+                            active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                        >
+                            Settings
+                        </RouterLink>
+                    </div>
                     <button
                         class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
                         @click="startNewChat"

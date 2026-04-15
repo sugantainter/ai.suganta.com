@@ -1,9 +1,40 @@
 <template>
-    <div class="min-h-[calc(100dvh-73px)] bg-[#0f0f0f] text-zinc-100">
-        <div class="mx-auto grid h-full w-full max-w-6xl gap-4 px-4 py-5 lg:grid-cols-[260px_1fr]">
-            <aside class="h-fit rounded-2xl border border-zinc-800 bg-[#171717] p-3 lg:sticky lg:top-5">
-                <p class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Settings</p>
-                <nav class="space-y-1">
+    <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
+        <div class="grid h-full min-h-0 md:grid-cols-[260px_1fr]">
+            <aside class="hidden h-full min-h-0 flex-col border-r border-zinc-800 bg-[#171717] md:flex">
+                <div class="shrink-0 space-y-3 border-b border-zinc-800 p-3">
+                    <a
+                        href="https://www.suganta.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/80 p-2 shadow-lg shadow-black/30"
+                    >
+                        <img
+                            src="/logo/Su250.png"
+                            alt="SuGanta"
+                            class="h-8 w-auto rounded-md"
+                        >
+                    </a>
+                    <div class="flex items-center rounded-lg border border-zinc-800 bg-zinc-900/70 p-1">
+                        <RouterLink
+                            to="/"
+                            class="w-full rounded-md px-3 py-1.5 text-center text-xs font-medium text-zinc-300 transition hover:text-white"
+                            active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                        >
+                            Chat
+                        </RouterLink>
+                        <RouterLink
+                            to="/settings"
+                            class="w-full rounded-md px-3 py-1.5 text-center text-xs font-medium text-zinc-300 transition hover:text-white"
+                            active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                        >
+                            Settings
+                        </RouterLink>
+                    </div>
+                </div>
+                <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+                    <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Settings</p>
+                    <nav class="space-y-1">
                     <button
                         v-for="item in menuItems"
                         :key="item.id"
@@ -16,10 +47,21 @@
                     >
                         {{ item.label }}
                     </button>
-                </nav>
+                    </nav>
+                </div>
             </aside>
 
-            <section class="space-y-4">
+            <section ref="settingsScrollRef" class="hide-scrollbar min-h-0 overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
+                <div class="mb-3 flex items-center justify-between md:hidden">
+                    <p class="text-sm font-medium text-zinc-200">Settings</p>
+                    <RouterLink
+                        to="/"
+                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200"
+                    >
+                        Back to chat
+                    </RouterLink>
+                </div>
+                <div class="space-y-4">
                 <div id="settings-section-general" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
                     <div class="flex flex-wrap items-center gap-3">
                         <img
@@ -192,6 +234,7 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </section>
         </div>
     </div>
@@ -199,6 +242,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { showErrorAlert } from '../utils/alerts';
 
 const overview = ref({});
@@ -224,6 +268,7 @@ const passwordForm = ref({
     password: '',
     password_confirmation: '',
 });
+const settingsScrollRef = ref(null);
 
 const menuItems = [
     { id: 'general', label: 'General' },
@@ -465,11 +510,11 @@ onMounted(async () => {
         showErrorAlert(statusText.value, 'Settings load failed');
     }
 
-    window.addEventListener('scroll', updateActiveSectionFromViewport, { passive: true });
+    settingsScrollRef.value?.addEventListener('scroll', updateActiveSectionFromViewport, { passive: true });
     updateActiveSectionFromViewport();
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener('scroll', updateActiveSectionFromViewport);
+    settingsScrollRef.value?.removeEventListener('scroll', updateActiveSectionFromViewport);
 });
 </script>
