@@ -151,13 +151,25 @@
                         >
                             {{ chatErrorMessage }}
                         </div>
-                        <div class="rounded-3xl border border-zinc-700 bg-zinc-900 px-4 py-3">
+                        <div class="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2">
                             <div v-if="attachments.length" class="mb-3 flex flex-wrap gap-2">
                                 <div
                                     v-for="item in attachments"
                                     :key="`${item.name}-${item.size}`"
                                     class="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/80 px-2 py-1 text-xs text-zinc-300"
                                 >
+                                    <img
+                                        v-if="item.type.startsWith('image/') && item.dataUrl"
+                                        :src="item.dataUrl"
+                                        :alt="item.name"
+                                        class="h-8 w-8 rounded object-cover"
+                                    >
+                                    <div
+                                        v-else
+                                        class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
+                                    >
+                                        FILE
+                                    </div>
                                     <span class="max-w-44 truncate">{{ item.name }}</span>
                                     <button
                                         class="text-zinc-400 hover:text-zinc-200"
@@ -168,47 +180,53 @@
                                     </button>
                                 </div>
                             </div>
-                            <textarea
-                                v-model="inputMessage"
-                                rows="1"
-                                class="max-h-52 w-full resize-y bg-transparent text-sm text-zinc-100 outline-none"
-                                placeholder="Message SuGanta AI..."
-                                @keydown.enter.exact.prevent="sendMessage"
-                            />
-                            <div class="mt-3 flex items-center justify-between">
-                                <p class="text-xs text-zinc-500">Enter to send</p>
-                                <div class="flex items-center gap-2">
-                                    <input
-                                        ref="fileInputRef"
-                                        type="file"
-                                        class="hidden"
-                                        accept="image/*,.txt,.md,.csv,.json,.log"
-                                        multiple
-                                        @change="onFilePicked"
-                                    >
-                                    <button
-                                        class="rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
-                                        type="button"
-                                        @click="openFilePicker"
-                                    >
-                                        Upload
-                                    </button>
-                                    <button
-                                        class="rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
-                                        type="button"
-                                        :disabled="!speechSupported"
-                                        @click="toggleMic"
-                                    >
-                                        {{ listening ? 'Stop Mic' : 'Mic' }}
-                                    </button>
-                                    <button
-                                        class="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                        :disabled="sending || (!inputMessage.trim() && attachments.length === 0)"
-                                        @click="sendMessage"
-                                    >
-                                        {{ sending ? 'Sending...' : 'Send' }}
-                                    </button>
-                                </div>
+                            <div class="flex items-center gap-2">
+                                <input
+                                    ref="fileInputRef"
+                                    type="file"
+                                    class="hidden"
+                                    accept="image/*,.txt,.md,.csv,.json,.log"
+                                    multiple
+                                    @change="onFilePicked"
+                                >
+                                <button
+                                    class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+                                    type="button"
+                                    @click="openFilePicker"
+                                    title="Upload files"
+                                >
+                                    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current" aria-hidden="true">
+                                        <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"></path>
+                                    </svg>
+                                </button>
+                                <textarea
+                                    v-model="inputMessage"
+                                    rows="1"
+                                    class="max-h-40 min-h-9 w-full resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+                                    placeholder="Ask anything"
+                                    @keydown.enter.exact.prevent="sendMessage"
+                                />
+                                <button
+                                    class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-60"
+                                    type="button"
+                                    :disabled="!speechSupported"
+                                    @click="toggleMic"
+                                    :title="listening ? 'Stop microphone' : 'Use microphone'"
+                                >
+                                    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current" aria-hidden="true">
+                                        <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-2.07A7 7 0 0 0 19 12z"></path>
+                                    </svg>
+                                </button>
+                                <button
+                                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    :disabled="sending || (!inputMessage.trim() && attachments.length === 0)"
+                                    @click="sendMessage"
+                                    :title="sending ? 'Sending' : 'Send message'"
+                                >
+                                    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current" aria-hidden="true">
+                                        <path d="M3 11.5 21 4l-7.5 18-1.9-7.6L3 11.5zm9 1.6 1.1 4.3L17.8 6l-8.6 7.1z"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -721,8 +739,15 @@ function toggleMic() {
             inputMessage.value = transcript.trim();
         };
 
-        recognition.onerror = () => {
-            chatErrorMessage.value = 'Microphone error. Please check mic permission.';
+        recognition.onerror = (event) => {
+            const code = String(event?.error || '').toLowerCase();
+            if (code === 'not-allowed' || code === 'service-not-allowed') {
+                chatErrorMessage.value = 'Microphone permission is blocked. Please allow mic access in your browser/site settings and try again.';
+            } else if (code === 'audio-capture') {
+                chatErrorMessage.value = 'No microphone was found. Please connect a microphone and try again.';
+            } else {
+                chatErrorMessage.value = 'Microphone error. Please check mic permission.';
+            }
             listening.value = false;
         };
         recognition.onend = () => {
@@ -731,8 +756,13 @@ function toggleMic() {
     }
 
     chatErrorMessage.value = '';
-    recognition.start();
-    listening.value = true;
+    try {
+        recognition.start();
+        listening.value = true;
+    } catch {
+        chatErrorMessage.value = 'Unable to start microphone. Please allow mic permission and try again.';
+        listening.value = false;
+    }
 }
 
 async function loadConversationList() {
