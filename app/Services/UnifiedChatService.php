@@ -121,7 +121,7 @@ class UnifiedChatService
                 $join->on('last_message_ids.ai_conversation_id', '=', 'ai_conversations.id');
             })
             ->leftJoin('ai_messages as last_message', 'last_message.id', '=', 'last_message_ids.id')
-            ->where('user_id', $tenantId)
+            ->where('ai_conversations.user_id', $tenantId)
             ->select([
                 'ai_conversations.*',
                 'last_message.content as last_assistant_message',

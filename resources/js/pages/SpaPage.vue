@@ -1,151 +1,103 @@
 <template>
-    <div class="grid min-h-[80vh] gap-4 md:grid-cols-[320px_1fr]">
-        <aside class="rounded-2xl border border-zinc-800/80 bg-linear-to-b from-zinc-900/95 to-zinc-950/95 shadow-xl shadow-black/30">
+    <div class="grid min-h-[82vh] gap-0 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 md:grid-cols-[280px_1fr]">
+        <aside class="flex flex-col border-r border-zinc-800 bg-zinc-900/70">
             <div class="space-y-3 border-b border-zinc-800 p-4">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-sm font-semibold tracking-wide text-zinc-200">Conversations</h2>
-                    <button
-                        class="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-900 hover:bg-white"
-                        @click="startNewChat"
-                    >
-                        New Chat
-                    </button>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-xs text-zinc-400">Optional API Key</label>
-                    <input
-                        v-model="apiKey"
-                        type="password"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                        placeholder="x-api-key (optional)"
-                    />
-                </div>
+                <button
+                    class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
+                    @click="startNewChat"
+                >
+                    + New chat
+                </button>
+                <input
+                    v-model="apiKey"
+                    type="password"
+                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                    placeholder="Optional X-API-Key"
+                />
             </div>
 
-            <div class="max-h-[60vh] space-y-2 overflow-auto p-3">
+            <div class="flex-1 space-y-1 overflow-auto p-2">
                 <button
                     v-for="conversation in conversations"
                     :key="conversation.id"
-                    class="w-full rounded-lg border px-3 py-2 text-left transition"
+                    class="w-full rounded-lg px-3 py-2 text-left transition"
                     :class="currentConversationId === conversation.id
-                        ? 'border-zinc-500 bg-zinc-800'
-                        : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'"
+                        ? 'bg-zinc-800 text-white'
+                        : 'text-zinc-300 hover:bg-zinc-800/60'"
                     @click="openConversation(conversation.id)"
                 >
-                    <p class="truncate text-sm font-medium text-zinc-100">{{ conversation.subject || 'Untitled' }}</p>
-                    <p class="mt-1 line-clamp-2 text-xs text-zinc-400">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
+                    <p class="truncate text-sm font-medium">{{ conversation.subject || 'Untitled' }}</p>
+                    <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
                 </button>
-
-                <p v-if="!conversations.length" class="px-1 py-2 text-xs text-zinc-500">
-                    No conversations found.
-                </p>
+                <p v-if="!conversations.length" class="px-3 py-2 text-xs text-zinc-500">No conversations yet.</p>
             </div>
         </aside>
 
-        <section class="flex min-h-[80vh] flex-col rounded-2xl border border-zinc-800/80 bg-linear-to-b from-zinc-900/90 to-zinc-950/90 shadow-xl shadow-black/30">
-            <div class="grid gap-3 border-b border-zinc-800 p-4 md:grid-cols-4">
-                <div>
-                    <label class="mb-1 block text-xs text-zinc-400">Model</label>
-                    <select
-                        v-model="model"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    >
-                        <option v-for="item in modelOptions" :key="item.model" :value="item.model">
-                            {{ item.display_name }} ({{ item.provider }})
-                        </option>
-                    </select>
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs text-zinc-400">Capability Filter</label>
-                    <select
-                        v-model="capabilityFilter"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    >
-                        <option value="all">All</option>
-                        <option value="vision">Vision</option>
-                        <option value="reasoning">Reasoning</option>
-                        <option value="web_search">Web Search</option>
-                        <option value="tools">Tools</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs text-zinc-400">Temperature</label>
-                    <input
-                        v-model.number="temperature"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="2"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    />
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs text-zinc-400">Max Tokens</label>
-                    <input
-                        v-model.number="maxTokens"
-                        type="number"
-                        min="1"
-                        max="8192"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    />
+        <section class="relative flex min-h-[82vh] flex-col bg-zinc-950">
+            <div class="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
+                <select
+                    v-model="model"
+                    class="max-w-[280px] rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                >
+                    <option v-for="item in modelOptions" :key="item.model" :value="item.model">
+                        {{ item.display_name }}
+                    </option>
+                </select>
+                <select
+                    v-model="capabilityFilter"
+                    class="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                >
+                    <option value="all">All</option>
+                    <option value="vision">Vision</option>
+                    <option value="reasoning">Reasoning</option>
+                    <option value="web_search">Web Search</option>
+                    <option value="tools">Tools</option>
+                </select>
+                <div class="ml-auto text-xs text-zinc-500">
+                    {{ usage.total_tokens ?? 0 }} / {{ usage.token_limit ?? 10000 }} tokens
                 </div>
             </div>
 
-            <div class="grid flex-1 gap-4 p-4 md:grid-cols-[1fr_280px]">
-                <div class="flex min-h-0 flex-col rounded-lg border border-zinc-800 bg-zinc-950">
-                    <div class="flex-1 space-y-3 overflow-auto p-4">
-                        <div
-                            v-for="(message, index) in messages"
-                            :key="`${message.role}-${index}`"
-                            class="max-w-[90%] rounded-lg px-3 py-2 text-sm"
-                            :class="message.role === 'user'
-                                ? 'ml-auto bg-zinc-200 text-zinc-900'
-                                : 'bg-zinc-800 text-zinc-100'"
-                        >
-                            <p class="mb-1 text-[10px] uppercase tracking-wide opacity-70">{{ message.role }}</p>
-                            <p class="whitespace-pre-wrap">{{ message.content }}</p>
-                        </div>
-
-                        <p v-if="!messages.length" class="text-sm text-zinc-500">
-                            Start a new message to begin chatting.
-                        </p>
+            <div class="flex-1 overflow-auto px-4 py-5">
+                <div v-if="messages.length" class="mx-auto w-full max-w-3xl space-y-4">
+                    <div
+                        v-for="(message, index) in messages"
+                        :key="`${message.role}-${index}`"
+                        class="rounded-xl px-4 py-3 text-sm"
+                        :class="message.role === 'user'
+                            ? 'ml-auto max-w-[85%] bg-zinc-200 text-zinc-900'
+                            : 'max-w-[92%] bg-zinc-900 text-zinc-100'"
+                    >
+                        <p class="mb-1 text-[10px] uppercase tracking-wide opacity-70">{{ message.role }}</p>
+                        <p class="whitespace-pre-wrap">{{ message.content }}</p>
                     </div>
+                </div>
 
-                    <div class="space-y-2 border-t border-zinc-800 p-3">
+                <div v-else class="flex h-full items-center justify-center">
+                    <div class="w-full max-w-2xl text-center">
+                        <p class="mb-6 text-3xl font-medium text-zinc-200">Ready when you are.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-zinc-800 bg-zinc-950/95 p-4">
+                <div class="mx-auto w-full max-w-3xl">
+                    <div class="rounded-2xl border border-zinc-700 bg-zinc-900 px-3 py-2">
                         <textarea
                             v-model="inputMessage"
-                            rows="3"
-                            class="w-full resize-none rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            rows="2"
+                            class="w-full resize-none bg-transparent text-sm text-zinc-100 outline-none"
                             placeholder="Ask anything..."
                         />
-                        <div class="flex items-center justify-between">
+                        <div class="mt-2 flex items-center justify-between">
                             <p class="text-xs text-zinc-500">{{ statusText }}</p>
                             <button
-                                class="rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-60"
+                                class="rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-60"
                                 :disabled="sending || !inputMessage.trim()"
                                 @click="sendMessage"
                             >
                                 {{ sending ? 'Sending...' : 'Send' }}
                             </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-                    <h3 class="text-sm font-semibold text-zinc-200">Usage</h3>
-                    <p class="text-xs text-zinc-400">Total Tokens</p>
-                    <p class="text-2xl font-semibold text-white">{{ usage.total_tokens ?? 0 }}</p>
-                    <p class="text-xs text-zinc-400">Limit: {{ usage.token_limit ?? 10000 }}</p>
-                    <p class="text-xs text-zinc-400">Remaining: {{ usage.remaining_tokens ?? 10000 }}</p>
-                    <div class="space-y-2 pt-2">
-                        <h4 class="text-xs uppercase tracking-wide text-zinc-500">Recent Requests</h4>
-                        <div
-                            v-for="item in usage.recent_requests || []"
-                            :key="item.id"
-                            class="rounded-md border border-zinc-800 bg-zinc-900 p-2"
-                        >
-                            <p class="text-xs text-zinc-300">{{ item.provider }} / {{ item.model }}</p>
-                            <p class="text-[11px] text-zinc-500">{{ item.total_tokens }} tokens · {{ item.status }}</p>
                         </div>
                     </div>
                 </div>

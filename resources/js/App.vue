@@ -8,7 +8,6 @@
                     alt="SuGanta"
                     class="h-10 w-auto rounded-sm"
                 >
-                <span class="text-lg font-semibold tracking-tight text-white">{{ appName }}</span>
                 </div>
                 <nav class="flex items-center gap-2">
                     <RouterLink
@@ -36,6 +35,4 @@
 
 <script setup>
 import { RouterLink, RouterView } from 'vue-router';
-
-const appName = import.meta.env.VITE_APP_NAME ?? 'Laravel';
 </script>
