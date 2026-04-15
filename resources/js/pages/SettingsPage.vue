@@ -30,6 +30,13 @@
                         >
                             Settings
                         </RouterLink>
+                        <RouterLink
+                            to="/contact"
+                            class="w-full rounded-md px-3 py-1.5 text-center text-xs font-medium text-zinc-300 transition hover:text-white"
+                            active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                        >
+                            Contact
+                        </RouterLink>
                     </div>
                 </div>
                 <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
@@ -84,6 +91,13 @@
                             >
                                 Settings
                             </RouterLink>
+                            <RouterLink
+                                to="/contact"
+                                class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
+                                active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                            >
+                                Contact
+                            </RouterLink>
                         </div>
                     </div>
                     <div class="flex items-center justify-between gap-2">
@@ -128,6 +142,15 @@
                         <p><span class="text-zinc-500">Role:</span> {{ displayUser.role ?? '-' }}</p>
                         <p><span class="text-zinc-500">Phone:</span> {{ displayUser.phone ?? '-' }}</p>
                         <p><span class="text-zinc-500">Profile completion:</span> {{ displayUser.completion_percentage ?? 0 }}%</p>
+                    </div>
+                    <div class="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+                        <p class="text-sm text-zinc-300">Need help or want to share product feedback?</p>
+                        <RouterLink
+                            to="/contact"
+                            class="mt-2 inline-flex rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                        >
+                            Open Contact & Feedback
+                        </RouterLink>
                     </div>
                 </div>
 

@@ -13,6 +13,6 @@ import { RouterView } from 'vue-router';
 
 const route = useRoute();
 const isFullWidthRoute = computed(() => {
-    return ['chat.home', 'chat.conversation', 'chat.shared', 'settings'].includes(String(route.name ?? ''));
+    return ['chat.home', 'chat.conversation', 'chat.shared', 'settings', 'contact.feedback'].includes(String(route.name ?? ''));
 });
 </script>

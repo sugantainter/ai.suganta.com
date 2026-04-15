@@ -29,6 +29,15 @@ const routes = [
         },
     },
     {
+        path: '/contact',
+        name: 'contact.feedback',
+        component: () => import('../pages/ContactFeedbackPage.vue'),
+        meta: {
+            title: 'Contact & Feedback - SuGanta AI',
+            description: 'Submit contact inquiries and product feedback to SuGanta.',
+        },
+    },
+    {
         path: '/share/:shareToken',
         name: 'chat.shared',
         component: () => import('../pages/SharedChatPage.vue'),

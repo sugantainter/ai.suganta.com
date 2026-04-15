@@ -30,6 +30,13 @@
                         >
                             Settings
                         </RouterLink>
+                        <RouterLink
+                            to="/contact"
+                            class="w-full rounded-md px-3 py-1.5 text-center text-xs font-medium text-zinc-300 transition hover:text-white"
+                            active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                        >
+                            Contact
+                        </RouterLink>
                     </div>
                     <button
                         class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
@@ -116,6 +123,13 @@
                                     active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
                                 >
                                     Settings
+                                </RouterLink>
+                                <RouterLink
+                                    to="/contact"
+                                    class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
+                                    active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                                >
+                                    Contact
                                 </RouterLink>
                             </div>
                             <button
