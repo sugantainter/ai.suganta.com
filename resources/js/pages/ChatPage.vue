@@ -226,6 +226,12 @@
                             {{ chatErrorMessage }}
                         </div>
                         <div
+                            v-if="rateLimitHint"
+                            class="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+                        >
+                            {{ rateLimitHint }}
+                        </div>
+                        <div
                             v-else-if="sending"
                             class="mb-3 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-300"
                         >
@@ -453,6 +459,7 @@ const sending = ref(false);
 const statusText = ref('Ready');
 const modelErrorMessage = ref('');
 const chatErrorMessage = ref('');
+const rateLimitHint = ref('');
 const asyncModeActive = ref(false);
 const conversationAssets = ref([]);
 const assetsLoading = ref(false);
@@ -653,6 +660,12 @@ async function apiRequest(path, options = {}) {
         const error = new Error(data?.message || `Request failed: ${response.status}`);
         error.code = String(data?.code || '');
         error.status = Number(response.status || 0);
+        error.rateLimit = {
+            retryAfter: Number.parseInt(String(response.headers.get('retry-after') ?? ''), 10),
+            limit: Number.parseInt(String(response.headers.get('x-ratelimit-limit') ?? ''), 10),
+            remaining: Number.parseInt(String(response.headers.get('x-ratelimit-remaining') ?? ''), 10),
+            reset: Number.parseInt(String(response.headers.get('x-ratelimit-reset') ?? ''), 10),
+        };
         throw error;
     }
 
@@ -668,8 +681,54 @@ function shouldFallbackToAsync(error) {
     return code === 'chat_concurrency_limited'
         || code === 'chat_provider_timeout'
         || code === 'request_timeout'
-        || status === 429
         || status === 504;
+}
+
+function toUserFriendlyChatError(error) {
+    const code = String(error?.code || '').toLowerCase();
+    const status = Number(error?.status || 0);
+    const rawMessage = String(error?.message || '').trim();
+
+    if (status === 429) {
+        return 'Too many requests right now. Please wait a few seconds and try again.';
+    }
+    if (code === 'chat_concurrency_limited') {
+        return 'The server is busy with many chat requests. Please retry shortly.';
+    }
+    if (code === 'chat_provider_timeout' || code === 'request_timeout') {
+        return 'The response timed out. Please try again.';
+    }
+
+    return rawMessage || 'Unable to process chat request at this time.';
+}
+
+function buildRateLimitHint(error) {
+    const status = Number(error?.status || 0);
+    if (status !== 429) {
+        return '';
+    }
+
+    const retryAfter = Number(error?.rateLimit?.retryAfter);
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+        return `Try again in about ${retryAfter} second${retryAfter === 1 ? '' : 's'}.`;
+    }
+
+    const reset = Number(error?.rateLimit?.reset);
+    if (Number.isFinite(reset) && reset > 0) {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const remainingSeconds = Math.max(0, reset - nowSeconds);
+        if (remainingSeconds > 0) {
+            return `Rate limit resets in about ${remainingSeconds} second${remainingSeconds === 1 ? '' : 's'}.`;
+        }
+    }
+
+    const remaining = Number(error?.rateLimit?.remaining);
+    const limit = Number(error?.rateLimit?.limit);
+    if (Number.isFinite(remaining) && Number.isFinite(limit) && limit > 0) {
+        return `Rate limit status: ${remaining}/${limit} requests remaining.`;
+    }
+
+    return 'Please wait briefly before sending the next message.';
 }
 
 function sleep(ms) {
@@ -1033,6 +1092,7 @@ async function sendMessage() {
     sending.value = true;
     asyncModeActive.value = false;
     chatErrorMessage.value = '';
+    rateLimitHint.value = '';
     statusText.value = 'Sending...';
     await scrollMessagesToBottom();
 
@@ -1101,14 +1161,17 @@ async function sendMessage() {
         await Promise.all([loadConversationList(), loadUsage()]);
         statusText.value = 'Response received';
         chatErrorMessage.value = '';
+        rateLimitHint.value = '';
         await scrollMessagesToBottom();
     } catch (error) {
         messages.value = nextMessages;
-        chatErrorMessage.value = error.message || 'Unable to process chat request at this time.';
-        modelErrorMessage.value = String(error.message || '').toLowerCase().includes('model')
-            ? (error.message || 'Model error. Please choose another model and try again.')
+        const userFriendlyMessage = toUserFriendlyChatError(error);
+        chatErrorMessage.value = userFriendlyMessage;
+        rateLimitHint.value = buildRateLimitHint(error);
+        modelErrorMessage.value = userFriendlyMessage.toLowerCase().includes('model')
+            ? (userFriendlyMessage || 'Model error. Please choose another model and try again.')
             : modelErrorMessage.value;
-        statusText.value = error.message || 'Failed to send message';
+        statusText.value = userFriendlyMessage || 'Failed to send message';
         showErrorAlert(chatErrorMessage.value, 'Chat request failed');
     } finally {
         asyncModeActive.value = false;
