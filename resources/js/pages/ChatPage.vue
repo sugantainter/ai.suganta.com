@@ -75,6 +75,38 @@
             </aside>
 
             <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
+                <div class="shrink-0 border-b border-zinc-800 px-3 py-2 md:hidden">
+                    <div class="flex items-center justify-between gap-2">
+                        <a
+                            href="https://www.suganta.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="rounded-lg border border-zinc-800 bg-zinc-900/80 p-1.5"
+                        >
+                            <img
+                                src="/logo/Su250.png"
+                                alt="SuGanta"
+                                class="h-6 w-auto rounded-md"
+                            >
+                        </a>
+                        <div class="flex items-center rounded-lg border border-zinc-800 bg-zinc-900/70 p-1">
+                            <RouterLink
+                                to="/"
+                                class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
+                                active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                            >
+                                Chat
+                            </RouterLink>
+                            <RouterLink
+                                to="/settings"
+                                class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
+                                active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                            >
+                                Settings
+                            </RouterLink>
+                        </div>
+                    </div>
+                </div>
                 <ChatTopBar
                     v-model="model"
                     :capability-filter="capabilityFilter"
@@ -103,6 +135,31 @@
                                     : 'max-w-full bg-zinc-900/70 text-zinc-100'"
                             >
                                 {{ message.content }}
+                            </div>
+                            <div
+                                v-if="message.attachments?.length"
+                                class="mt-2 flex flex-wrap gap-2"
+                                :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+                            >
+                                <div
+                                    v-for="attachment in message.attachments"
+                                    :key="`${attachment.name}-${attachment.size || 0}`"
+                                    class="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-300"
+                                >
+                                    <img
+                                        v-if="attachment.type?.startsWith('image/') && attachment.dataUrl"
+                                        :src="attachment.dataUrl"
+                                        :alt="attachment.name"
+                                        class="h-8 w-8 rounded object-cover"
+                                    >
+                                    <div
+                                        v-else
+                                        class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
+                                    >
+                                        FILE
+                                    </div>
+                                    <span class="max-w-44 truncate">{{ attachment.name }}</span>
+                                </div>
                             </div>
                         </div>
                         <div v-if="isSharedView" class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
@@ -222,7 +279,10 @@
                                     @keydown.enter.exact.prevent="sendMessage"
                                 />
                                 <button
-                                    class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-60 sm:h-9 sm:w-9"
+                                    class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition disabled:opacity-60 sm:h-9 sm:w-9"
+                                    :class="listening
+                                        ? 'animate-pulse bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/50'
+                                        : 'hover:bg-zinc-800 hover:text-zinc-100'"
                                     type="button"
                                     :disabled="isSharedView || !speechSupported"
                                     @click="toggleMic"
@@ -242,6 +302,13 @@
                                         <path d="M3 11.5 21 4l-7.5 18-1.9-7.6L3 11.5zm9 1.6 1.1 4.3L17.8 6l-8.6 7.1z"></path>
                                     </svg>
                                 </button>
+                            </div>
+                            <div
+                                v-if="listening && !isSharedView"
+                                class="mt-2 flex items-center gap-2 pl-1 text-[11px] text-emerald-300"
+                            >
+                                <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
+                                <span>Listening... speak now</span>
                             </div>
                         </div>
                     </div>
@@ -515,6 +582,7 @@ async function openConversation(conversationId, syncRoute = true) {
         messages.value = (data.messages ?? []).map((item) => ({
             role: item.role,
             content: item.content,
+            attachments: [],
         }));
         if (syncRoute) {
             await syncConversationRoute(parsedConversationId);
@@ -618,19 +686,16 @@ async function sendMessage() {
         return;
     }
 
-    let attachmentText = '';
-    if (attachments.value.length > 0) {
-        const serialized = attachments.value.map((item) => {
-            if (item.type.startsWith('image/')) {
-                return `[Image: ${item.name}]${item.dataUrl ? `\n${item.dataUrl}` : ''}`;
-            }
-            return `[File: ${item.name}]\n${item.textContent || '(No readable text extracted)'}`;
-        }).join('\n\n');
-        attachmentText = `\n\nAttached content:\n${serialized}`;
-    }
-
-    const composedUserText = `${text}${attachmentText}`.trim();
-    const nextMessages = [...messages.value, { role: 'user', content: composedUserText }];
+    const currentAttachments = [...attachments.value];
+    const attachmentSummary = currentAttachments.length > 0
+        ? `\n\nAttachments: ${currentAttachments.map((item) => item.name).join(', ')}`
+        : '';
+    const composedUserText = `${text}${attachmentSummary}`.trim();
+    const nextMessages = [...messages.value, {
+        role: 'user',
+        content: composedUserText,
+        attachments: currentAttachments,
+    }];
     messages.value = nextMessages;
     inputMessage.value = '';
     attachments.value = [];
@@ -648,6 +713,13 @@ async function sendMessage() {
             temperature: Number(temperature.value),
             max_tokens: Number(maxTokens.value),
             messages: nextMessages,
+            attachments: currentAttachments.map((item) => ({
+                name: String(item.name || 'attachment'),
+                type: item.type?.startsWith('image/') ? 'image' : (item.textContent ? 'text' : 'file'),
+                mime_type: String(item.type || 'application/octet-stream'),
+                content_text: item.textContent ? String(item.textContent) : undefined,
+                content_base64: item.dataUrl ? String(item.dataUrl) : undefined,
+            })),
         };
 
         const data = await apiRequest('/api/v1/chat', {
@@ -944,6 +1016,7 @@ async function loadSharedConversation(shareToken) {
         messages.value = (data.messages ?? []).map((item) => ({
             role: item.role,
             content: item.content,
+            attachments: [],
         }));
         if (data.conversation?.model) {
             model.value = String(data.conversation.model);
