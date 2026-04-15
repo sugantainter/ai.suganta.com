@@ -55,7 +55,7 @@
             </aside>
 
             <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
-                <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
+                <div class="sticky top-0 z-30 shrink-0 border-b border-zinc-800 bg-[#212121] px-4 py-3">
                     <div class="mb-2 flex items-center justify-between gap-2 md:hidden">
                         <a
                             href="https://www.suganta.com"
@@ -128,61 +128,6 @@
                         <p><span class="text-zinc-500">Role:</span> {{ displayUser.role ?? '-' }}</p>
                         <p><span class="text-zinc-500">Phone:</span> {{ displayUser.phone ?? '-' }}</p>
                         <p><span class="text-zinc-500">Profile completion:</span> {{ displayUser.completion_percentage ?? 0 }}%</p>
-                    </div>
-                </div>
-
-                <div id="settings-section-profile" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
-                    <h2 class="text-base font-semibold text-white">Profile information</h2>
-                    <p class="mt-1 text-sm text-zinc-400">Synced with `api.suganta.com/api/v1/profile`.</p>
-
-                    <div class="mt-4 grid gap-3 md:grid-cols-2">
-                        <label class="space-y-1.5">
-                            <span class="text-xs font-medium text-zinc-400">Full name</span>
-                            <input
-                                v-model="profileForm.name"
-                                type="text"
-                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                                placeholder="Full name"
-                            />
-                        </label>
-                        <label class="space-y-1.5">
-                            <span class="text-xs font-medium text-zinc-400">Phone</span>
-                            <input
-                                v-model="profileForm.phone"
-                                type="text"
-                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                                placeholder="Phone"
-                            />
-                        </label>
-                        <label class="space-y-1.5">
-                            <span class="text-xs font-medium text-zinc-400">First name</span>
-                            <input
-                                v-model="profileForm.first_name"
-                                type="text"
-                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                                placeholder="First name"
-                            />
-                        </label>
-                        <label class="space-y-1.5">
-                            <span class="text-xs font-medium text-zinc-400">Last name</span>
-                            <input
-                                v-model="profileForm.last_name"
-                                type="text"
-                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                                placeholder="Last name"
-                            />
-                        </label>
-                    </div>
-
-                    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                        <button
-                            class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
-                            :disabled="profileSaving"
-                            @click="updateProfile"
-                        >
-                            {{ profileSaving ? 'Saving...' : 'Save profile' }}
-                        </button>
-                        <p class="text-xs text-zinc-500">{{ profileStatusText }}</p>
                     </div>
                 </div>
 
@@ -316,16 +261,8 @@ const saving = ref(false);
 const removingProvider = ref('');
 const statusText = ref('Ready');
 const activeSection = ref('general');
-const profileSaving = ref(false);
-const profileStatusText = ref('Edit and save profile information.');
 const passwordSaving = ref(false);
 const passwordStatusText = ref('Password strength: min 8 chars, include mix of character types.');
-const profileForm = ref({
-    name: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-});
 const passwordForm = ref({
     current_password: '',
     password: '',
@@ -335,7 +272,6 @@ const settingsScrollRef = ref(null);
 
 const menuItems = [
     { id: 'general', label: 'General' },
-    { id: 'profile', label: 'Profile' },
     { id: 'usage', label: 'Usage' },
     { id: 'api-keys', label: 'API Keys' },
     { id: 'security', label: 'Security' },
@@ -414,12 +350,6 @@ async function loadOverview() {
     const data = await apiRequest('/api/v1/settings/overview');
     overview.value = data ?? {};
     providerKeys.value = data.provider_keys ?? [];
-    profileForm.value = {
-        name: String(data.profile_form?.name ?? displayUser.value.name ?? ''),
-        first_name: String(data.profile_form?.first_name ?? ''),
-        last_name: String(data.profile_form?.last_name ?? ''),
-        phone: String(data.profile_form?.phone ?? displayUser.value.phone ?? ''),
-    };
     if (!provider.value) {
         provider.value = providerOptions.value[0] ?? '';
     }
@@ -431,29 +361,6 @@ async function loadProviderKeys() {
 
     if (!providerOptions.value.includes(provider.value)) {
         provider.value = providerOptions.value[0] ?? '';
-    }
-}
-
-async function updateProfile() {
-    profileSaving.value = true;
-    try {
-        const data = await apiRequest('/api/v1/settings/profile', {
-            method: 'PUT',
-            body: JSON.stringify({
-                name: profileForm.value.name?.trim() || null,
-                first_name: profileForm.value.first_name?.trim() || null,
-                last_name: profileForm.value.last_name?.trim() || null,
-                phone: profileForm.value.phone?.trim() || null,
-                phone_primary: profileForm.value.phone?.trim() || null,
-            }),
-        });
-        profileStatusText.value = data.message || 'Profile updated successfully.';
-        await loadOverview();
-    } catch (error) {
-        profileStatusText.value = error.message || 'Failed to update profile';
-        showErrorAlert(profileStatusText.value, 'Profile update failed');
-    } finally {
-        profileSaving.value = false;
     }
 }
 

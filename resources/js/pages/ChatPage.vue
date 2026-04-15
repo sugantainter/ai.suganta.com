@@ -75,51 +75,53 @@
             </aside>
 
             <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
-                <div class="shrink-0 border-b border-zinc-800 px-3 py-2 md:hidden">
-                    <div class="flex items-center justify-between gap-2">
-                        <a
-                            href="https://www.suganta.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="rounded-lg border border-zinc-800 bg-zinc-900/80 p-1.5"
-                        >
-                            <img
-                                src="/logo/Su250.png"
-                                alt="SuGanta"
-                                class="h-6 w-auto rounded-md"
+                <div class="sticky top-0 z-30 bg-[#212121]">
+                    <div class="shrink-0 border-b border-zinc-800 px-3 py-2 md:hidden">
+                        <div class="flex items-center justify-between gap-2">
+                            <a
+                                href="https://www.suganta.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="rounded-lg border border-zinc-800 bg-zinc-900/80 p-1.5"
                             >
-                        </a>
-                        <div class="flex items-center rounded-lg border border-zinc-800 bg-zinc-900/70 p-1">
-                            <RouterLink
-                                to="/"
-                                class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
-                                active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
-                            >
-                                Chat
-                            </RouterLink>
-                            <RouterLink
-                                to="/settings"
-                                class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
-                                active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
-                            >
-                                Settings
-                            </RouterLink>
+                                <img
+                                    src="/logo/Su250.png"
+                                    alt="SuGanta"
+                                    class="h-6 w-auto rounded-md"
+                                >
+                            </a>
+                            <div class="flex items-center rounded-lg border border-zinc-800 bg-zinc-900/70 p-1">
+                                <RouterLink
+                                    to="/"
+                                    class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
+                                    active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                                >
+                                    Chat
+                                </RouterLink>
+                                <RouterLink
+                                    to="/settings"
+                                    class="rounded-md px-3 py-1 text-xs font-medium text-zinc-300"
+                                    active-class="bg-zinc-800 text-white shadow-sm shadow-black/40"
+                                >
+                                    Settings
+                                </RouterLink>
+                            </div>
                         </div>
                     </div>
+                    <ChatTopBar
+                        v-model="model"
+                        :capability-filter="capabilityFilter"
+                        :is-shared-view="isSharedView"
+                        :model-options="modelOptions"
+                        :status-text="statusText"
+                        :model-error-message="modelErrorMessage"
+                        :share-loading="shareLoading"
+                        :can-share="Boolean(currentConversationId)"
+                        @update:capability-filter="capabilityFilter = $event"
+                        @open-search="openSearchModal"
+                        @share="shareConversation"
+                    />
                 </div>
-                <ChatTopBar
-                    v-model="model"
-                    :capability-filter="capabilityFilter"
-                    :is-shared-view="isSharedView"
-                    :model-options="modelOptions"
-                    :status-text="statusText"
-                    :model-error-message="modelErrorMessage"
-                    :share-loading="shareLoading"
-                    :can-share="Boolean(currentConversationId)"
-                    @update:capability-filter="capabilityFilter = $event"
-                    @open-search="openSearchModal"
-                    @share="shareConversation"
-                />
 
                 <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     <div v-if="messages.length" class="mx-auto w-full max-w-3xl px-4 py-8">
@@ -367,7 +369,7 @@ let searchDebounceTimer = null;
 let activeSearchRequestId = 0;
 
 const currentConversationId = ref(null);
-const model = ref('gpt-4o-mini');
+const model = ref('gemini-2.5-flash-lite');
 const temperature = ref(0.7);
 const maxTokens = ref(512);
 const capabilityFilter = ref('all');

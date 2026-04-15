@@ -1,7 +1,7 @@
 <template>
     <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
         <div class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
-            <div class="shrink-0 border-b border-zinc-800 bg-[#1b1b1b]/80 px-4 py-3 backdrop-blur">
+            <div class="sticky top-0 z-30 shrink-0 border-b border-zinc-800 bg-[#1b1b1b]/80 px-4 py-3 backdrop-blur">
                 <div class="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <a

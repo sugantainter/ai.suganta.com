@@ -2,7 +2,7 @@
 
 return [
     'default_provider' => env('AI_DEFAULT_PROVIDER', 'openai'),
-    'default_model' => env('AI_DEFAULT_MODEL', 'gpt-4o-mini'),
+    'default_model' => env('AI_DEFAULT_MODEL', 'gemini-2.5-flash-lite'),
     'fallback_providers' => array_filter(array_map('trim', explode(',', (string) env('AI_FALLBACK_PROVIDERS', 'openai,gemini,anthropic,grok,deepseek,openrouter,mistral,cohere,perplexity')))),
     'request_timeout_seconds' => (int) env('AI_REQUEST_TIMEOUT_SECONDS', 30),
     'request_retries' => (int) env('AI_REQUEST_RETRIES', 2),
