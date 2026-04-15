@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ChatRequest extends FormRequest
 {
@@ -13,8 +14,10 @@ class ChatRequest extends FormRequest
 
     public function rules(): array
     {
+        $providers = array_keys((array) config('ai.providers', []));
+
         return [
-            'provider' => ['nullable', 'string', 'in:openai,gemini,anthropic'],
+            'provider' => ['nullable', 'string', Rule::in($providers)],
             'model' => ['nullable', 'string', 'max:120'],
             'stream' => ['nullable', 'boolean'],
             'conversation_id' => ['nullable', 'integer', 'min:1'],
@@ -27,7 +30,7 @@ class ChatRequest extends FormRequest
             'messages.*.role' => ['required', 'string', 'in:system,user,assistant'],
             'messages.*.content' => ['required', 'string'],
             'fallback_providers' => ['nullable', 'array'],
-            'fallback_providers.*' => ['string', 'in:openai,gemini,anthropic'],
+            'fallback_providers.*' => ['string', Rule::in($providers)],
         ];
     }
 }

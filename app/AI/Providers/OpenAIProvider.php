@@ -15,6 +15,7 @@ class OpenAIProvider implements ChatProviderInterface
 
     public function chat(array $payload, string $apiKey): array
     {
+        $providerKey = $this->key();
         $response = Http::retry(
             config('ai.request_retries', 2),
             config('ai.retry_delay_ms', 200),
@@ -22,7 +23,7 @@ class OpenAIProvider implements ChatProviderInterface
         )->timeout(config('ai.request_timeout_seconds', 30))
             ->withToken($apiKey)
             ->acceptJson()
-            ->post(rtrim((string) config('ai.providers.openai.base_url'), '/').'/chat/completions', [
+            ->post(rtrim((string) config("ai.providers.{$providerKey}.base_url"), '/').'/chat/completions', [
                 'model' => $payload['model'],
                 'messages' => $payload['messages'],
                 'temperature' => $payload['temperature'] ?? 0.7,
@@ -31,7 +32,7 @@ class OpenAIProvider implements ChatProviderInterface
             ]);
 
         if (! $response->successful()) {
-            throw new ConnectionException("OpenAI request failed with status {$response->status()}.");
+            throw new ConnectionException(ucfirst($providerKey)." request failed with status {$response->status()}.");
         }
 
         $json = (array) $response->json();

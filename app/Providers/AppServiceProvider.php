@@ -3,9 +3,6 @@
 namespace App\Providers;
 
 use App\AI\ProviderRegistry;
-use App\AI\Providers\AnthropicProvider;
-use App\AI\Providers\GeminiProvider;
-use App\AI\Providers\OpenAIProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -20,9 +17,15 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(ProviderRegistry::class, function () {
             $registry = new ProviderRegistry();
-            $registry->add(new OpenAIProvider());
-            $registry->add(new GeminiProvider());
-            $registry->add(new AnthropicProvider());
+            $adapters = (array) config('ai.adapters', []);
+
+            foreach ($adapters as $provider => $adapterClass) {
+                if (! is_string($adapterClass) || ! class_exists($adapterClass)) {
+                    continue;
+                }
+
+                $registry->add(app($adapterClass));
+            }
 
             return $registry;
         });

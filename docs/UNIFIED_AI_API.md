@@ -1,6 +1,6 @@
 # Unified AI API
 
-This API exposes unified endpoints for OpenAI, Gemini, and Anthropic with tenant-aware auth, managed history, token tracking, and model catalog support.
+This API exposes unified endpoints for OpenAI, Gemini, Anthropic, Grok, DeepSeek, OpenRouter, Mistral, Cohere, and Perplexity with tenant-aware auth, managed history, token tracking, and model catalog support.
 
 ## Endpoints
 
@@ -14,7 +14,6 @@ This API exposes unified endpoints for OpenAI, Gemini, and Anthropic with tenant
 
 ```json
 {
-  "provider": "openai",
   "model": "gpt-4o-mini",
   "conversation_id": 123,
   "subject": "Backend API planning",
@@ -75,11 +74,13 @@ Store keys in `ai_api_keys` as SHA-256 hashes:
 
 Store tenant provider credentials in `ai_provider_credentials`.
 
-- `provider`: `openai | gemini | anthropic`
+- `provider`: `openai | gemini | anthropic | grok | deepseek | openrouter | mistral | cohere | perplexity`
 - `encrypted_api_key`: encrypted via Laravel `encrypted` cast
 - `tenant_id` + `provider` is unique
 
 If a tenant credential is absent, service falls back to env provider keys.
+
+Provider is auto-detected from selected `model` using `ai_models`. Clients only need to send `model`.
 
 ## Rate limiting
 
@@ -92,6 +93,7 @@ Global default uses `AI_API_DEFAULT_RATE_LIMIT`.
 - Aggregate tokens: `ai_user_usages`
 - Conversation history: `ai_conversations` + `ai_messages`
 - Model catalog: `ai_models`
+- Default user token quota: `10,000` tokens (`AI_DEFAULT_USER_TOKEN_LIMIT`)
 
 ## AI SQL Database
 
@@ -103,13 +105,24 @@ All AI tables are configured to use dedicated SQL connection `ai_mysql`, with da
 
 ## Model catalog
 
-All provider models are centrally managed in `ai_models`:
+All provider models are centrally managed in `ai_models` (OpenAI, Gemini, Anthropic, Grok, DeepSeek, OpenRouter, Mistral, Cohere, Perplexity):
 
 - `provider`, `model_key`, `display_name`
-- feature flags (`supports_streaming`, `supports_vision`)
+- feature flags (`supports_streaming`, `supports_vision`, `supports_reasoning`, `supports_web_search`, `supports_tools`)
 - defaults and metadata per model
 
 Use `GET /api/v1/models` to fetch active models.
+Users select model only in UI; provider is inferred by backend.
+UI also supports capability-based filtering (Vision, Reasoning, Web Search, Tools).
+
+## Provider architecture
+
+- Providers are config-driven through `config/ai.php` adapter map.
+- Add a new provider by:
+  1) creating adapter class implementing `ChatProviderInterface`,
+  2) adding adapter class to `ai.adapters`,
+  3) adding provider credentials under `ai.providers`,
+  4) inserting models into `ai_models`.
 
 ## Managed history
 
@@ -119,9 +132,17 @@ Use `GET /api/v1/models` to fetch active models.
 - List all conversations via `GET /chat/histories`.
 - Read history via `GET /chat/history/{conversationId}`.
 
+## Token quota behavior
+
+- Every user starts with a default quota of `10,000` tokens.
+- If quota is exhausted, `POST /chat` returns `429` with code `token_limit_exceeded`.
+- Usage response includes `token_limit` and `remaining_tokens`.
+
 ## Required env vars
 
 - `AI_DEFAULT_PROVIDER`, `AI_DEFAULT_MODEL`, `AI_FALLBACK_PROVIDERS`
+- `AI_DEFAULT_USER_TOKEN_LIMIT`
 - `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`
+- `GROK_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `PERPLEXITY_API_KEY`
 - `AI_DB_CONNECTION`, `AI_DB_DATABASE`, `AI_DB_HOST`, `AI_DB_PORT`, `AI_DB_USERNAME`, `AI_DB_PASSWORD`
 - `AI_USAGE_DB_CONNECTION`, `AI_HISTORY_DB_CONNECTION`

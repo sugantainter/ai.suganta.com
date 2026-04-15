@@ -18,6 +18,9 @@ return new class extends Migration
             $table->unsignedInteger('max_output_tokens')->nullable();
             $table->boolean('supports_streaming')->default(true);
             $table->boolean('supports_vision')->default(false);
+            $table->boolean('supports_reasoning')->default(false);
+            $table->boolean('supports_web_search')->default(false);
+            $table->boolean('supports_tools')->default(false);
             $table->boolean('is_active')->default(true);
             $table->boolean('is_default')->default(false);
             $table->json('metadata')->nullable();
@@ -35,6 +38,9 @@ return new class extends Migration
                 'max_output_tokens' => 16384,
                 'supports_streaming' => true,
                 'supports_vision' => true,
+                'supports_reasoning' => false,
+                'supports_web_search' => false,
+                'supports_tools' => true,
                 'is_active' => true,
                 'is_default' => true,
                 'metadata' => json_encode(['family' => 'gpt-4o']),
@@ -49,6 +55,9 @@ return new class extends Migration
                 'max_output_tokens' => 8192,
                 'supports_streaming' => true,
                 'supports_vision' => true,
+                'supports_reasoning' => false,
+                'supports_web_search' => true,
+                'supports_tools' => true,
                 'is_active' => true,
                 'is_default' => true,
                 'metadata' => json_encode(['family' => 'gemini-2.5']),
@@ -63,6 +72,9 @@ return new class extends Migration
                 'max_output_tokens' => 8192,
                 'supports_streaming' => true,
                 'supports_vision' => true,
+                'supports_reasoning' => true,
+                'supports_web_search' => false,
+                'supports_tools' => true,
                 'is_active' => true,
                 'is_default' => true,
                 'metadata' => json_encode(['family' => 'claude-3.5']),

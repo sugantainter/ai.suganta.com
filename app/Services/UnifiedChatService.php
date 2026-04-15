@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\AI\Exceptions\TokenLimitExceededException;
 use App\AI\ProviderRegistry;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
@@ -21,6 +22,11 @@ class UnifiedChatService
      */
     public function handle(int $tenantId, ?int $apiKeyId, array $payload): array
     {
+        $usageState = $this->getOrCreateUsageState($tenantId);
+        $this->assertUserWithinTokenLimit($usageState);
+        $payload = $this->applyTokenBudgetToPayload($payload, $usageState);
+        $payload = $this->ensureProviderFromModel($payload);
+
         $conversation = $this->resolveConversation($tenantId, $payload);
         $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
         $fallbacks = $payload['fallback_providers'] ?? config('ai.fallback_providers', []);
@@ -105,21 +111,28 @@ class UnifiedChatService
         $limit = max(1, min($limit, 100));
         $page = max(1, $page);
 
+        $latestAssistantSub = $connection->table('ai_messages')
+            ->selectRaw('MAX(id) as id, ai_conversation_id')
+            ->where('role', 'assistant')
+            ->groupBy('ai_conversation_id');
+
         $query = $connection->table('ai_conversations')
+            ->leftJoinSub($latestAssistantSub, 'last_message_ids', function ($join): void {
+                $join->on('last_message_ids.ai_conversation_id', '=', 'ai_conversations.id');
+            })
+            ->leftJoin('ai_messages as last_message', 'last_message.id', '=', 'last_message_ids.id')
             ->where('user_id', $tenantId)
+            ->select([
+                'ai_conversations.*',
+                'last_message.content as last_assistant_message',
+            ])
             ->orderByDesc('last_used_at')
             ->orderByDesc('id');
 
         $total = (clone $query)->count();
         $rows = $query->forPage($page, $limit)->get();
 
-        $conversations = $rows->map(function ($conversation) use ($connection): array {
-            $lastAssistantMessage = $connection->table('ai_messages')
-                ->where('ai_conversation_id', $conversation->id)
-                ->where('role', 'assistant')
-                ->orderByDesc('id')
-                ->value('content');
-
+        $conversations = $rows->map(function ($conversation): array {
             return [
                 'id' => (int) $conversation->id,
                 'subject' => (string) ($conversation->subject ?? ''),
@@ -132,7 +145,7 @@ class UnifiedChatService
                 'last_used_at' => (string) ($conversation->last_used_at ?? ''),
                 'created_at' => (string) ($conversation->created_at ?? ''),
                 'updated_at' => (string) ($conversation->updated_at ?? ''),
-                'last_assistant_message' => (string) ($lastAssistantMessage ?? ''),
+                'last_assistant_message' => (string) ($conversation->last_assistant_message ?? ''),
             ];
         })->values()->all();
 
@@ -150,8 +163,7 @@ class UnifiedChatService
      */
     public function getUsageSummary(int $tenantId): array
     {
-        $usageConnection = DB::connection((string) config('ai.usage_connection'));
-        $totalUsage = $usageConnection->table('ai_user_usages')->where('user_id', $tenantId)->first();
+        $totalUsage = $this->getOrCreateUsageState($tenantId);
         $requests = RequestLog::query()
             ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
@@ -161,6 +173,11 @@ class UnifiedChatService
         return [
             'tenant_id' => $tenantId,
             'total_tokens' => (int) ($totalUsage->total_tokens ?? 0),
+            'token_limit' => (int) ($totalUsage->token_limit ?? config('ai.default_user_token_limit', 10000)),
+            'remaining_tokens' => max(
+                0,
+                (int) ($totalUsage->token_limit ?? config('ai.default_user_token_limit', 10000)) - (int) ($totalUsage->total_tokens ?? 0)
+            ),
             'recent_requests' => $requests->map(fn (RequestLog $log) => [
                 'id' => $log->id,
                 'provider' => $log->provider,
@@ -195,6 +212,9 @@ class UnifiedChatService
             'max_output_tokens' => $model->max_output_tokens,
             'supports_streaming' => $model->supports_streaming,
             'supports_vision' => $model->supports_vision,
+            'supports_reasoning' => $model->supports_reasoning,
+            'supports_web_search' => $model->supports_web_search,
+            'supports_tools' => $model->supports_tools,
             'is_default' => $model->is_default,
             'metadata' => $model->metadata ?? [],
         ])->values()->all();
@@ -253,12 +273,14 @@ class UnifiedChatService
 
         $connection = DB::connection((string) config('ai.usage_connection'));
         $existing = $connection->table('ai_user_usages')->where('user_id', $tenantId)->first();
+        $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
 
         if ($existing) {
             $connection->table('ai_user_usages')
                 ->where('user_id', $tenantId)
                 ->update([
                     'total_tokens' => (int) $existing->total_tokens + $tokens,
+                    'token_limit' => (int) ($existing->token_limit ?? $defaultTokenLimit),
                     'updated_at' => now(),
                 ]);
 
@@ -268,6 +290,7 @@ class UnifiedChatService
         $connection->table('ai_user_usages')->insert([
             'user_id' => $tenantId,
             'total_tokens' => $tokens,
+            'token_limit' => $defaultTokenLimit,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -322,22 +345,20 @@ class UnifiedChatService
         $completionTokens = (int) ($usage['completion_tokens'] ?? 0);
         $totalTokens = (int) ($usage['total_tokens'] ?? 0);
 
-        $messageItems = collect((array) ($payload['messages'] ?? []))
-            ->filter(fn ($message) => is_array($message) && isset($message['content'], $message['role']));
-
-        $messageItems->each(function (array $message) use ($conversation, $historyConnection): void {
+        $latestUserMessage = $this->extractLatestUserMessage((array) ($payload['messages'] ?? []));
+        if ($latestUserMessage !== null && $this->shouldPersistUserMessage($conversation, $latestUserMessage, $historyConnection)) {
             AiMessage::on($historyConnection)->create([
                 'ai_conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
-                'content' => (string) $message['content'],
-                'role' => (string) $message['role'],
+                'content' => $latestUserMessage,
+                'role' => 'user',
                 'prompt_tokens' => 0,
                 'completion_tokens' => 0,
                 'total_tokens' => 0,
                 'raw_request' => null,
                 'raw_response' => null,
             ]);
-        });
+        }
 
         AiMessage::on($historyConnection)->create([
             'ai_conversation_id' => $conversation->id,
@@ -364,6 +385,105 @@ class UnifiedChatService
                 'last_provider' => $provider,
             ]),
         ])->save();
+    }
+
+    private function getOrCreateUsageState(int $tenantId): object
+    {
+        $connection = DB::connection((string) config('ai.usage_connection'));
+        $usage = $connection->table('ai_user_usages')->where('user_id', $tenantId)->first();
+
+        if ($usage) {
+            return $usage;
+        }
+
+        $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
+        $connection->table('ai_user_usages')->insert([
+            'user_id' => $tenantId,
+            'total_tokens' => 0,
+            'token_limit' => $defaultTokenLimit,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return (object) [
+            'user_id' => $tenantId,
+            'total_tokens' => 0,
+            'token_limit' => $defaultTokenLimit,
+        ];
+    }
+
+    private function assertUserWithinTokenLimit(object $usageState): void
+    {
+        $usedTokens = (int) ($usageState->total_tokens ?? 0);
+        $tokenLimit = (int) ($usageState->token_limit ?? config('ai.default_user_token_limit', 10000));
+
+        if ($usedTokens >= $tokenLimit) {
+            throw new TokenLimitExceededException($tokenLimit, $usedTokens);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function applyTokenBudgetToPayload(array $payload, object $usageState): array
+    {
+        $usedTokens = (int) ($usageState->total_tokens ?? 0);
+        $tokenLimit = (int) ($usageState->token_limit ?? config('ai.default_user_token_limit', 10000));
+        $remaining = max(1, $tokenLimit - $usedTokens);
+        $requestedMaxTokens = (int) ($payload['max_tokens'] ?? 1024);
+
+        $payload['max_tokens'] = max(1, min($requestedMaxTokens, $remaining));
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $messages
+     */
+    private function extractLatestUserMessage(array $messages): ?string
+    {
+        $latestUserMessage = collect($messages)
+            ->reverse()
+            ->first(fn ($message) => is_array($message) && ($message['role'] ?? null) === 'user');
+
+        $content = trim((string) data_get($latestUserMessage, 'content', ''));
+
+        return $content === '' ? null : $content;
+    }
+
+    private function shouldPersistUserMessage(AiConversation $conversation, string $content, string $historyConnection): bool
+    {
+        $lastUserMessage = AiMessage::on($historyConnection)
+            ->where('ai_conversation_id', $conversation->id)
+            ->where('role', 'user')
+            ->orderByDesc('id')
+            ->first();
+
+        return ! $lastUserMessage || trim((string) $lastUserMessage->content) !== $content;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function ensureProviderFromModel(array $payload): array
+    {
+        if (! empty($payload['provider'])) {
+            return $payload;
+        }
+
+        $modelKey = (string) ($payload['model'] ?? config('ai.default_model'));
+        $provider = AiModel::query()
+            ->where('model_key', $modelKey)
+            ->where('is_active', true)
+            ->value('provider');
+
+        $payload['provider'] = is_string($provider) && $provider !== ''
+            ? $provider
+            : (string) config('ai.default_provider');
+
+        return $payload;
     }
 
     /**

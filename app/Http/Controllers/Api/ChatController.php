@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\AI\Exceptions\TokenLimitExceededException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChatRequest;
 use App\Services\UnifiedChatService;
@@ -22,7 +23,19 @@ class ChatController extends Controller
 
         $tenantId = (int) $request->attributes->get('tenant_id');
         $apiKeyId = $request->attributes->get('api_key_id');
-        $result = $this->chatService->handle($tenantId, $apiKeyId, $payload);
+        try {
+            $result = $this->chatService->handle($tenantId, $apiKeyId, $payload);
+        } catch (TokenLimitExceededException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => 'token_limit_exceeded',
+            ], 429);
+        } catch (\Throwable $exception) {
+            return response()->json([
+                'message' => 'Unable to process chat request at this time.',
+                'code' => 'chat_request_failed',
+            ], 502);
+        }
 
         if (! $payload['stream']) {
             return response()->json([

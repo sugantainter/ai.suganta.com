@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('total_tokens')->default(0);
+            $table->unsignedBigInteger('token_limit')->default(10000);
             $table->timestamps();
 
             $table->unique('user_id');

@@ -45,25 +45,27 @@
         <section class="flex min-h-[80vh] flex-col rounded-xl border border-zinc-800 bg-zinc-900/70">
             <div class="grid gap-3 border-b border-zinc-800 p-4 md:grid-cols-4">
                 <div>
-                    <label class="mb-1 block text-xs text-zinc-400">Provider</label>
-                    <select
-                        v-model="provider"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    >
-                        <option value="openai">openai</option>
-                        <option value="gemini">gemini</option>
-                        <option value="anthropic">anthropic</option>
-                    </select>
-                </div>
-                <div>
                     <label class="mb-1 block text-xs text-zinc-400">Model</label>
                     <select
                         v-model="model"
                         class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
                     >
-                        <option v-for="item in modelsForProvider" :key="item.model" :value="item.model">
-                            {{ item.display_name }}
+                        <option v-for="item in modelOptions" :key="item.model" :value="item.model">
+                            {{ item.display_name }} ({{ item.provider }})
                         </option>
+                    </select>
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs text-zinc-400">Capability Filter</label>
+                    <select
+                        v-model="capabilityFilter"
+                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                    >
+                        <option value="all">All</option>
+                        <option value="vision">Vision</option>
+                        <option value="reasoning">Reasoning</option>
+                        <option value="web_search">Web Search</option>
+                        <option value="tools">Tools</option>
                     </select>
                 </div>
                 <div>
@@ -133,6 +135,8 @@
                     <h3 class="text-sm font-semibold text-zinc-200">Usage</h3>
                     <p class="text-xs text-zinc-400">Total Tokens</p>
                     <p class="text-2xl font-semibold text-white">{{ usage.total_tokens ?? 0 }}</p>
+                    <p class="text-xs text-zinc-400">Limit: {{ usage.token_limit ?? 10000 }}</p>
+                    <p class="text-xs text-zinc-400">Remaining: {{ usage.remaining_tokens ?? 10000 }}</p>
                     <div class="space-y-2 pt-2">
                         <h4 class="text-xs uppercase tracking-wide text-zinc-500">Recent Requests</h4>
                         <div
@@ -160,20 +164,38 @@ const models = ref([]);
 const apiKey = ref('');
 
 const currentConversationId = ref(null);
-const provider = ref('openai');
 const model = ref('gpt-4o-mini');
 const temperature = ref(0.7);
 const maxTokens = ref(512);
+const capabilityFilter = ref('all');
 const inputMessage = ref('');
 const sending = ref(false);
 const statusText = ref('Ready');
 
-const modelsForProvider = computed(() => models.value.filter((item) => item.provider === provider.value));
+const modelOptions = computed(() => {
+    if (capabilityFilter.value === 'all') {
+        return models.value;
+    }
 
-watch(provider, () => {
-    const first = modelsForProvider.value[0];
-    if (first) {
-        model.value = first.model;
+    if (capabilityFilter.value === 'vision') {
+        return models.value.filter((item) => item.supports_vision === true);
+    }
+    if (capabilityFilter.value === 'reasoning') {
+        return models.value.filter((item) => item.supports_reasoning === true);
+    }
+    if (capabilityFilter.value === 'web_search') {
+        return models.value.filter((item) => item.supports_web_search === true);
+    }
+    if (capabilityFilter.value === 'tools') {
+        return models.value.filter((item) => item.supports_tools === true);
+    }
+
+    return models.value;
+});
+
+watch([capabilityFilter, models], () => {
+    if (!modelOptions.value.some((item) => item.model === model.value)) {
+        model.value = modelOptions.value[0]?.model ?? '';
     }
 });
 
@@ -215,8 +237,7 @@ async function loadBootstrapData() {
         conversations.value = historyData.conversations ?? [];
         usage.value = usageData ?? { total_tokens: 0, recent_requests: [] };
         models.value = modelData.models ?? [];
-
-        const first = modelsForProvider.value[0];
+        const first = modelOptions.value[0];
         if (first) {
             model.value = first.model;
         }
@@ -263,7 +284,6 @@ async function sendMessage() {
 
     try {
         const payload = {
-            provider: provider.value,
             model: model.value,
             conversation_id: currentConversationId.value ?? undefined,
             save_history: true,
