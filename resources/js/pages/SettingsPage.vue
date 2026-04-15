@@ -104,35 +104,49 @@
                 <div id="settings-section-profile" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                     <h2 class="text-base font-semibold text-white">Profile information</h2>
                     <p class="mt-1 text-sm text-zinc-400">Synced with `api.suganta.com/api/v1/profile`.</p>
+
                     <div class="mt-4 grid gap-3 md:grid-cols-2">
-                        <input
-                            v-model="profileForm.name"
-                            type="text"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                            placeholder="Full name"
-                        />
-                        <input
-                            v-model="profileForm.phone"
-                            type="text"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                            placeholder="Phone"
-                        />
-                        <input
-                            v-model="profileForm.first_name"
-                            type="text"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                            placeholder="First name"
-                        />
-                        <input
-                            v-model="profileForm.last_name"
-                            type="text"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                            placeholder="Last name"
-                        />
+                        <label class="space-y-1.5">
+                            <span class="text-xs font-medium text-zinc-400">Full name</span>
+                            <input
+                                v-model="profileForm.name"
+                                type="text"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="Full name"
+                            />
+                        </label>
+                        <label class="space-y-1.5">
+                            <span class="text-xs font-medium text-zinc-400">Phone</span>
+                            <input
+                                v-model="profileForm.phone"
+                                type="text"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="Phone"
+                            />
+                        </label>
+                        <label class="space-y-1.5">
+                            <span class="text-xs font-medium text-zinc-400">First name</span>
+                            <input
+                                v-model="profileForm.first_name"
+                                type="text"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="First name"
+                            />
+                        </label>
+                        <label class="space-y-1.5">
+                            <span class="text-xs font-medium text-zinc-400">Last name</span>
+                            <input
+                                v-model="profileForm.last_name"
+                                type="text"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="Last name"
+                            />
+                        </label>
                     </div>
-                    <div class="mt-3 flex items-center gap-3">
+
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                         <button
-                            class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
+                            class="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
                             :disabled="profileSaving"
                             @click="updateProfile"
                         >

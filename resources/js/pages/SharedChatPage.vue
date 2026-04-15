@@ -25,7 +25,7 @@
                         href="/"
                         class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-100 hover:bg-zinc-800"
                     >
-                        Login
+                        {{ isAuthenticated ? 'Go to dashboard' : 'Login' }}
                     </a>
                 </div>
             </div>
@@ -55,12 +55,16 @@
 
                         <div class="mt-5 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-4 text-sm text-zinc-300">
                             <p class="font-medium text-zinc-100">Want to continue this conversation?</p>
-                            <p class="mt-1 text-zinc-400">Login to access more features and continue with the same chat style.</p>
+                            <p class="mt-1 text-zinc-400">
+                                {{ isAuthenticated
+                                    ? 'Open chat dashboard to continue with full features.'
+                                    : 'Login to access more features and continue with the same chat style.' }}
+                            </p>
                             <a
                                 href="/"
                                 class="mt-3 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white"
                             >
-                                Login to continue
+                                {{ isAuthenticated ? 'Open chat' : 'Login to continue' }}
                             </a>
                         </div>
                     </div>
@@ -72,7 +76,7 @@
                                 href="/"
                                 class="mt-5 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white"
                             >
-                                Login
+                                {{ isAuthenticated ? 'Go to dashboard' : 'Login' }}
                             </a>
                         </div>
                     </div>
@@ -91,6 +95,22 @@ const route = useRoute();
 const messageContainerRef = ref(null);
 const messages = ref([]);
 const statusText = ref('Loading shared conversation...');
+const isAuthenticated = ref(false);
+
+async function detectAuthState() {
+    try {
+        const response = await fetch('/api/v1/usage', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+        isAuthenticated.value = response.ok;
+    } catch {
+        isAuthenticated.value = false;
+    }
+}
 
 function setMetaTag(selector, attrName, attrValue, content) {
     const tag = document.querySelector(selector);
@@ -186,6 +206,7 @@ async function loadSharedConversation(shareToken) {
 }
 
 onMounted(() => {
+    detectAuthState();
     loadSharedConversation(route.params.shareToken);
 });
 
