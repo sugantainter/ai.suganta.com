@@ -38,6 +38,15 @@ const routes = [
         },
     },
     {
+        path: '/feedback',
+        name: 'feedback',
+        component: () => import('../pages/ContactFeedbackPage.vue'),
+        meta: {
+            title: 'Feedback - SuGanta AI',
+            description: 'Share your feedback and suggestions with SuGanta.',
+        },
+    },
+    {
         path: '/share/:shareToken',
         name: 'chat.shared',
         component: () => import('../pages/SharedChatPage.vue'),
