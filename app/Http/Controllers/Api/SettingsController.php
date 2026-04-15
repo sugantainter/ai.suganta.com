@@ -58,6 +58,28 @@ class SettingsController extends Controller
         ]);
     }
 
+    public function deleteProviderKey(Request $request, string $provider): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $availableProviders = array_keys((array) config('ai.providers', []));
+
+        if (! in_array($provider, $availableProviders, true)) {
+            return response()->json([
+                'message' => 'Unsupported provider.',
+            ], 422);
+        }
+
+        $removed = $this->chatService->removeProviderCredential($tenantId, $provider);
+
+        return response()->json([
+            'message' => $removed
+                ? "Removed key for {$provider}."
+                : "No stored key found for {$provider}.",
+            'provider' => $provider,
+            'removed' => $removed,
+        ]);
+    }
+
     public function updatePassword(Request $request): JsonResponse
     {
         $validated = $request->validate([

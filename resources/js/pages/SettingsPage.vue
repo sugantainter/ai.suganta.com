@@ -1,6 +1,6 @@
 <template>
-    <div class="min-h-[calc(100vh-96px)] bg-[#212121] text-zinc-100">
-        <div class="mx-auto grid w-full max-w-6xl gap-4 py-5 lg:grid-cols-[220px_1fr]">
+    <div class="min-h-[calc(100dvh-73px)] bg-[#0f0f0f] text-zinc-100">
+        <div class="mx-auto grid h-full w-full max-w-6xl gap-4 px-4 py-5 lg:grid-cols-[260px_1fr]">
             <aside class="h-fit rounded-2xl border border-zinc-800 bg-[#171717] p-3 lg:sticky lg:top-5">
                 <p class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Settings</p>
                 <nav class="space-y-1">
@@ -141,10 +141,20 @@
                                 :key="item.provider"
                                 class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm"
                             >
-                                <span class="text-zinc-300">{{ item.provider }}</span>
-                                <span :class="item.has_custom_key ? 'text-emerald-400' : 'text-zinc-500'">
-                                    {{ item.has_custom_key ? 'Saved' : 'Not set' }}
-                                </span>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-zinc-300">{{ item.provider }}</span>
+                                    <span :class="item.has_custom_key ? 'text-emerald-400' : 'text-zinc-500'">
+                                        {{ item.has_custom_key ? 'Saved' : 'Not set' }}
+                                    </span>
+                                </div>
+                                <button
+                                    v-if="item.has_custom_key"
+                                    class="rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+                                    :disabled="removingProvider === item.provider"
+                                    @click="removeProviderKey(item.provider)"
+                                >
+                                    {{ removingProvider === item.provider ? 'Removing...' : 'Remove' }}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -195,6 +205,7 @@ const providerKeys = ref([]);
 const provider = ref('');
 const providerApiKey = ref('');
 const saving = ref(false);
+const removingProvider = ref('');
 const statusText = ref('Ready');
 const activeSection = ref('general');
 const profileSaving = ref(false);
@@ -305,6 +316,15 @@ async function loadOverview() {
     }
 }
 
+async function loadProviderKeys() {
+    const data = await apiRequest('/api/v1/provider-keys');
+    providerKeys.value = data.provider_keys ?? [];
+
+    if (!providerOptions.value.includes(provider.value)) {
+        provider.value = providerOptions.value[0] ?? '';
+    }
+}
+
 async function updateProfile() {
     profileSaving.value = true;
     try {
@@ -343,12 +363,31 @@ async function saveProviderKey() {
             }),
         });
         providerApiKey.value = '';
-        await loadOverview();
+        await loadProviderKeys();
         statusText.value = `Saved key for ${provider.value}`;
     } catch (error) {
         statusText.value = error.message || 'Failed to save provider key';
     } finally {
         saving.value = false;
+    }
+}
+
+async function removeProviderKey(providerName) {
+    if (!providerName) {
+        return;
+    }
+
+    removingProvider.value = providerName;
+    try {
+        const data = await apiRequest(`/api/v1/provider-keys/${encodeURIComponent(providerName)}`, {
+            method: 'DELETE',
+        });
+        statusText.value = data.message || `Removed key for ${providerName}`;
+        await loadProviderKeys();
+    } catch (error) {
+        statusText.value = error.message || `Failed to remove key for ${providerName}`;
+    } finally {
+        removingProvider.value = '';
     }
 }
 

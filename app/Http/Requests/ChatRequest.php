@@ -29,6 +29,12 @@ class ChatRequest extends FormRequest
             'messages' => ['required', 'array', 'min:1'],
             'messages.*.role' => ['required', 'string', 'in:system,user,assistant'],
             'messages.*.content' => ['required', 'string'],
+            'attachments' => ['nullable', 'array', 'max:10'],
+            'attachments.*.name' => ['required_with:attachments', 'string', 'max:255'],
+            'attachments.*.type' => ['nullable', 'string', 'in:image,file,text'],
+            'attachments.*.mime_type' => ['nullable', 'string', 'max:150'],
+            'attachments.*.content_text' => ['nullable', 'string', 'max:50000'],
+            'attachments.*.content_base64' => ['nullable', 'string', 'max:2000000'],
             'fallback_providers' => ['nullable', 'array'],
             'fallback_providers.*' => ['string', Rule::in($providers)],
         ];

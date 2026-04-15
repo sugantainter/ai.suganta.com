@@ -7,6 +7,7 @@ use App\AI\ProviderRegistry;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\AiModel;
+use App\Models\AiUploadAsset;
 use App\Models\ProviderCredential;
 use App\Models\RequestLog;
 use Illuminate\Http\Client\ConnectionException;
@@ -14,7 +15,10 @@ use Illuminate\Support\Facades\DB;
 
 class UnifiedChatService
 {
-    public function __construct(private readonly ProviderRegistry $providers) {}
+    public function __construct(
+        private readonly ProviderRegistry $providers,
+        private readonly AiUploadStorageService $uploadStorageService
+    ) {}
 
     /**
      * @param  array<string,mixed>  $payload
@@ -22,12 +26,12 @@ class UnifiedChatService
      */
     public function handle(int $tenantId, ?int $apiKeyId, array $payload): array
     {
-        $usageState = $this->getOrCreateUsageState($tenantId);
-        $this->assertUserWithinTokenLimit($usageState);
-        $payload = $this->applyTokenBudgetToPayload($payload, $usageState);
         $payload = $this->ensureProviderFromModel($payload);
+        $usageState = $this->getOrCreateUsageState($tenantId);
+        $activeCustomProviderKeys = $this->getActiveCustomProviderKeys($tenantId);
 
         $conversation = $this->resolveConversation($tenantId, $payload);
+        $payload = $this->normalizePayloadAttachments($payload, $tenantId, (int) $conversation->id);
         $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
         $fallbacks = $payload['fallback_providers'] ?? config('ai.fallback_providers', []);
         $providerOrder = collect(array_merge([$preferred], $fallbacks))
@@ -37,27 +41,40 @@ class UnifiedChatService
 
         $lastException = null;
         foreach ($providerOrder as $providerKey) {
-            $providerApiKey = $this->resolveProviderApiKey($tenantId, $providerKey);
+            $providerAccess = $this->resolveProviderAccess($providerKey, $activeCustomProviderKeys);
+            $usingCustomProviderKey = (bool) ($providerAccess['using_custom_provider_key'] ?? false);
+            $providerApiKey = $providerAccess['provider_api_key'] ?? null;
             if (! $providerApiKey) {
                 continue;
             }
 
+            $providerPayload = $payload;
+            if (! $usingCustomProviderKey) {
+                $this->assertUserWithinTokenLimit($usageState);
+                $providerPayload = $this->applyTokenBudgetToPayload($providerPayload, $usageState);
+            }
+
             $start = microtime(true);
             try {
-                $response = $this->providers->get($providerKey)->chat($payload, $providerApiKey);
+                $response = $this->providers->get($providerKey)->chat($providerPayload, $providerApiKey);
                 $latencyMs = (int) round((microtime(true) - $start) * 1000);
                 $usage = (array) ($response['usage'] ?? []);
 
-                $this->storeUsage($tenantId, (int) ($usage['total_tokens'] ?? 0));
-                $this->logRequest($tenantId, $apiKeyId, $providerKey, $payload, $response, $latencyMs, null);
-                $this->persistConversationHistory($conversation, $payload, $response, $providerKey);
+                if (! $usingCustomProviderKey) {
+                    $consumedTokens = (int) ($usage['total_tokens'] ?? 0);
+                    $this->storeUsage($tenantId, $consumedTokens);
+                    $usageState->total_tokens = (int) ($usageState->total_tokens ?? 0) + $consumedTokens;
+                }
+
+                $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, $response, $latencyMs, null);
+                $this->persistConversationHistory($conversation, $providerPayload, $response, $providerKey);
                 $response['conversation_id'] = $conversation->id;
 
                 return $response;
             } catch (\Throwable $exception) {
                 $lastException = $exception;
                 $latencyMs = (int) round((microtime(true) - $start) * 1000);
-                $this->logRequest($tenantId, $apiKeyId, $providerKey, $payload, [], $latencyMs, $exception->getMessage());
+                $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, [], $latencyMs, $exception->getMessage());
                 $conversation->forceFill([
                     'status' => 'error',
                     'last_error_code' => 'provider_error',
@@ -334,19 +351,100 @@ class UnifiedChatService
         ];
     }
 
-    private function resolveProviderApiKey(int $tenantId, string $provider): ?string
+    public function removeProviderCredential(int $tenantId, string $provider): bool
     {
-        $tenantCredential = ProviderCredential::query()
+        return ProviderCredential::query()
             ->where('tenant_id', $tenantId)
             ->where('provider', $provider)
-            ->where('is_active', true)
+            ->delete() > 0;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function listConversationAssets(int $tenantId, int $conversationId, int $limit = 50): array
+    {
+        $conversation = AiConversation::query()
+            ->where('id', $conversationId)
+            ->where('user_id', $tenantId)
             ->first();
 
-        if ($tenantCredential && is_string($tenantCredential->encrypted_api_key) && $tenantCredential->encrypted_api_key !== '') {
-            return $tenantCredential->encrypted_api_key;
+        if (! $conversation) {
+            return [];
         }
 
-        return config("ai.providers.{$provider}.api_key");
+        $assets = AiUploadAsset::query()
+            ->where('tenant_id', $tenantId)
+            ->where('ai_conversation_id', $conversationId)
+            ->orderByDesc('id')
+            ->limit(max(1, min($limit, 200)))
+            ->get();
+
+        return $assets->map(static fn (AiUploadAsset $asset): array => [
+            'id' => (int) $asset->id,
+            'conversation_id' => (int) ($asset->ai_conversation_id ?? 0),
+            'attachment_type' => (string) $asset->attachment_type,
+            'name' => (string) $asset->name,
+            'mime_type' => (string) ($asset->mime_type ?? ''),
+            'size_bytes' => (int) ($asset->size_bytes ?? 0),
+            'storage_disk' => (string) $asset->storage_disk,
+            'storage_path' => (string) $asset->storage_path,
+            'text_preview' => (string) ($asset->text_preview ?? ''),
+            'created_at' => optional($asset->created_at)?->toIso8601String(),
+        ])->values()->all();
+    }
+
+    public function getConversationAsset(int $tenantId, int $conversationId, int $assetId): ?AiUploadAsset
+    {
+        $conversation = AiConversation::query()
+            ->where('id', $conversationId)
+            ->where('user_id', $tenantId)
+            ->first();
+
+        if (! $conversation) {
+            return null;
+        }
+
+        return AiUploadAsset::query()
+            ->where('id', $assetId)
+            ->where('tenant_id', $tenantId)
+            ->where('ai_conversation_id', $conversationId)
+            ->first();
+    }
+
+    /**
+     * @return array{using_custom_provider_key: bool, provider_api_key: string|null}
+     */
+    private function resolveProviderAccess(string $provider, array $activeCustomProviderKeys): array
+    {
+        $customKey = $activeCustomProviderKeys[$provider] ?? null;
+        if (is_string($customKey) && $customKey !== '') {
+            return [
+                'using_custom_provider_key' => true,
+                'provider_api_key' => $customKey,
+            ];
+        }
+
+        return [
+            'using_custom_provider_key' => false,
+            'provider_api_key' => config("ai.providers.{$provider}.api_key"),
+        ];
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function getActiveCustomProviderKeys(int $tenantId): array
+    {
+        return ProviderCredential::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->get(['provider', 'encrypted_api_key'])
+            ->filter(fn (ProviderCredential $credential): bool => is_string($credential->encrypted_api_key) && $credential->encrypted_api_key !== '')
+            ->mapWithKeys(fn (ProviderCredential $credential): array => [
+                (string) $credential->provider => (string) $credential->encrypted_api_key,
+            ])
+            ->all();
     }
 
     /**
@@ -615,5 +713,61 @@ class UnifiedChatService
         }
 
         return mb_substr($text, 0, 80);
+    }
+
+    /**
+     * Convert uploaded file/image payloads into chat context.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function normalizePayloadAttachments(array $payload, int $tenantId, int $conversationId): array
+    {
+        $attachments = $payload['attachments'] ?? null;
+        if (! is_array($attachments) || $attachments === []) {
+            return $payload;
+        }
+
+        $storedAttachments = $this->uploadStorageService->storeAttachments($tenantId, $conversationId, $attachments);
+        $normalizedBlocks = collect($storedAttachments)->map(function (array $item): string {
+            $name = (string) ($item['name'] ?? 'attachment');
+            $type = (string) ($item['type'] ?? 'file');
+            $mimeType = (string) ($item['mime_type'] ?? '');
+            $preview = mb_substr((string) ($item['preview'] ?? ''), 0, 15000);
+            $assetId = (int) ($item['asset_id'] ?? 0);
+
+            $header = '['.ucfirst($type).": {$name}]".($mimeType !== '' ? " ({$mimeType})" : '');
+            $storageMarker = $assetId > 0 ? "\nStored Asset ID: {$assetId}" : '';
+
+            return $header.$storageMarker.($preview !== '' ? "\n{$preview}" : "\n(No readable text extracted)");
+        })->values()->all();
+
+        if ($normalizedBlocks === []) {
+            return $payload;
+        }
+
+        $attachmentContext = "\n\nAttached content:\n".implode("\n\n", $normalizedBlocks);
+        $messages = is_array($payload['messages'] ?? null) ? $payload['messages'] : [];
+
+        for ($index = count($messages) - 1; $index >= 0; $index--) {
+            $message = $messages[$index] ?? null;
+            if (! is_array($message) || ($message['role'] ?? null) !== 'user') {
+                continue;
+            }
+
+            $content = trim((string) ($message['content'] ?? ''));
+            $messages[$index]['content'] = $content.$attachmentContext;
+            $payload['messages'] = $messages;
+
+            return $payload;
+        }
+
+        $messages[] = [
+            'role' => 'user',
+            'content' => trim($attachmentContext),
+        ];
+        $payload['messages'] = $messages;
+
+        return $payload;
     }
 }

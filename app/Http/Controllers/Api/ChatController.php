@@ -9,6 +9,8 @@ use App\Services\UnifiedChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
@@ -117,6 +119,85 @@ class ChatController extends Controller
         $tenantId = (int) $request->attributes->get('tenant_id');
 
         return response()->json($this->chatService->getUsageSummary($tenantId));
+    }
+
+    public function assets(int $conversationId, Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $limit = (int) $request->integer('limit', 50);
+
+        return response()->json([
+            'conversation_id' => $conversationId,
+            'assets' => $this->chatService->listConversationAssets($tenantId, $conversationId, $limit),
+        ]);
+    }
+
+    public function downloadAsset(int $conversationId, int $assetId, Request $request): StreamedResponse|JsonResponse
+    {
+        if ($request->query('signature') !== null && ! $request->hasValidSignature()) {
+            return response()->json([
+                'message' => 'Invalid or expired signed URL.',
+            ], 403);
+        }
+
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $asset = $this->chatService->getConversationAsset($tenantId, $conversationId, $assetId);
+
+        if (! $asset) {
+            return response()->json([
+                'message' => 'Asset not found.',
+            ], 404);
+        }
+
+        $disk = (string) $asset->storage_disk;
+        $path = (string) $asset->storage_path;
+        if (! Storage::disk($disk)->exists($path)) {
+            return response()->json([
+                'message' => 'Asset file is missing from storage.',
+            ], 404);
+        }
+
+        $stream = Storage::disk($disk)->readStream($path);
+        if (! is_resource($stream)) {
+            return response()->json([
+                'message' => 'Unable to open asset file.',
+            ], 500);
+        }
+
+        return response()->streamDownload(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, (string) $asset->name, [
+            'Content-Type' => (string) ($asset->mime_type ?: 'application/octet-stream'),
+        ]);
+    }
+
+    public function signedAssetUrl(int $conversationId, int $assetId, Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $asset = $this->chatService->getConversationAsset($tenantId, $conversationId, $assetId);
+        if (! $asset) {
+            return response()->json([
+                'message' => 'Asset not found.',
+            ], 404);
+        }
+
+        $expiresMinutes = max(1, min((int) $request->integer('expires_minutes', 10), 60));
+        $signedUrl = URL::temporarySignedRoute(
+            'api.v1.chat.assets.download',
+            now()->addMinutes($expiresMinutes),
+            [
+                'conversationId' => $conversationId,
+                'assetId' => $assetId,
+            ]
+        );
+
+        return response()->json([
+            'asset_id' => $assetId,
+            'conversation_id' => $conversationId,
+            'expires_in_minutes' => $expiresMinutes,
+            'signed_url' => $signedUrl,
+        ]);
     }
 
     public function models(): JsonResponse

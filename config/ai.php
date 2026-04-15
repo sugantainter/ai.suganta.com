@@ -9,6 +9,10 @@ return [
     'retry_delay_ms' => (int) env('AI_RETRY_DELAY_MS', 200),
     'stream_chunk_flush_ms' => (int) env('AI_STREAM_CHUNK_FLUSH_MS', 50),
     'default_user_token_limit' => (int) env('AI_DEFAULT_USER_TOKEN_LIMIT', 10000),
+    'uploads' => [
+        'disk' => env('AI_UPLOADS_DISK', 'local'),
+        'directory' => env('AI_UPLOADS_DIRECTORY', 'ai_uploads'),
+    ],
     'database_connection' => env('AI_DB_CONNECTION', 'ai_mysql'),
     'usage_connection' => env('AI_USAGE_DB_CONNECTION', env('AI_DB_CONNECTION', 'ai_mysql')),
     'history_connection' => env('AI_HISTORY_DB_CONNECTION', env('AI_DB_CONNECTION', 'ai_mysql')),

@@ -109,12 +109,65 @@
                 <div class="shrink-0 border-t border-zinc-800 bg-[#212121] px-4 py-4">
                     <div class="mx-auto w-full max-w-3xl">
                         <div
+                            v-if="currentConversationId && (assetsLoading || conversationAssets.length)"
+                            class="mb-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3"
+                        >
+                            <div class="mb-2 flex items-center justify-between">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-400">Conversation uploads</p>
+                                <p v-if="assetsLoading" class="text-xs text-zinc-500">Loading...</p>
+                            </div>
+                            <div class="space-y-2">
+                                <div
+                                    v-for="asset in conversationAssets"
+                                    :key="asset.id"
+                                    class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1.5"
+                                >
+                                    <div class="min-w-0">
+                                        <p class="truncate text-xs font-medium text-zinc-200">{{ asset.name }}</p>
+                                        <p class="truncate text-[11px] text-zinc-500">{{ asset.mime_type || asset.attachment_type }}</p>
+                                    </div>
+                                    <div class="ml-3 flex items-center gap-1">
+                                        <button
+                                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                            :disabled="assetActionLoadingId === asset.id"
+                                            @click="openAsset(asset, false)"
+                                        >
+                                            Preview
+                                        </button>
+                                        <button
+                                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                            :disabled="assetActionLoadingId === asset.id"
+                                            @click="openAsset(asset, true)"
+                                        >
+                                            Download
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div
                             v-if="chatErrorMessage"
                             class="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
                         >
                             {{ chatErrorMessage }}
                         </div>
                         <div class="rounded-3xl border border-zinc-700 bg-zinc-900 px-4 py-3">
+                            <div v-if="attachments.length" class="mb-3 flex flex-wrap gap-2">
+                                <div
+                                    v-for="item in attachments"
+                                    :key="`${item.name}-${item.size}`"
+                                    class="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/80 px-2 py-1 text-xs text-zinc-300"
+                                >
+                                    <span class="max-w-44 truncate">{{ item.name }}</span>
+                                    <button
+                                        class="text-zinc-400 hover:text-zinc-200"
+                                        type="button"
+                                        @click="removeAttachment(item)"
+                                    >
+                                        x
+                                    </button>
+                                </div>
+                            </div>
                             <textarea
                                 v-model="inputMessage"
                                 rows="1"
@@ -124,13 +177,38 @@
                             />
                             <div class="mt-3 flex items-center justify-between">
                                 <p class="text-xs text-zinc-500">Enter to send</p>
-                                <button
-                                    class="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                    :disabled="sending || !inputMessage.trim()"
-                                    @click="sendMessage"
-                                >
-                                    {{ sending ? 'Sending...' : 'Send' }}
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        ref="fileInputRef"
+                                        type="file"
+                                        class="hidden"
+                                        accept="image/*,.txt,.md,.csv,.json,.log"
+                                        multiple
+                                        @change="onFilePicked"
+                                    >
+                                    <button
+                                        class="rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+                                        type="button"
+                                        @click="openFilePicker"
+                                    >
+                                        Upload
+                                    </button>
+                                    <button
+                                        class="rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                                        type="button"
+                                        :disabled="!speechSupported"
+                                        @click="toggleMic"
+                                    >
+                                        {{ listening ? 'Stop Mic' : 'Mic' }}
+                                    </button>
+                                    <button
+                                        class="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                        :disabled="sending || (!inputMessage.trim() && attachments.length === 0)"
+                                        @click="sendMessage"
+                                    >
+                                        {{ sending ? 'Sending...' : 'Send' }}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -184,6 +262,7 @@ import { useRoute, useRouter } from 'vue-router';
 const route = useRoute();
 const router = useRouter();
 const messageContainerRef = ref(null);
+const fileInputRef = ref(null);
 
 const conversations = ref([]);
 const messages = ref([]);
@@ -204,13 +283,23 @@ const temperature = ref(0.7);
 const maxTokens = ref(512);
 const capabilityFilter = ref('all');
 const inputMessage = ref('');
+const attachments = ref([]);
 const sending = ref(false);
 const statusText = ref('Ready');
 const modelErrorMessage = ref('');
 const chatErrorMessage = ref('');
+const conversationAssets = ref([]);
+const assetsLoading = ref(false);
+const assetActionLoadingId = ref(null);
 const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyHasMore = ref(true);
+const SpeechRecognitionCtor = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
+    : null;
+const speechSupported = Boolean(SpeechRecognitionCtor);
+const listening = ref(false);
+let recognition = null;
 
 const modelOptions = computed(() => {
     if (capabilityFilter.value === 'all') {
@@ -243,6 +332,8 @@ watch([capabilityFilter, models], () => {
         } else {
             modelErrorMessage.value = '';
         }
+    } else {
+        modelErrorMessage.value = '';
     }
 });
 
@@ -359,6 +450,7 @@ async function openConversation(conversationId, syncRoute = true) {
         if (syncRoute) {
             await syncConversationRoute(parsedConversationId);
         }
+        await loadConversationAssets(parsedConversationId);
         statusText.value = 'Conversation loaded';
         await scrollMessagesToBottom();
     } catch (error) {
@@ -369,6 +461,7 @@ async function openConversation(conversationId, syncRoute = true) {
 async function startNewChat() {
     currentConversationId.value = null;
     messages.value = [];
+    conversationAssets.value = [];
     inputMessage.value = '';
     chatErrorMessage.value = '';
     await syncConversationRoute(null);
@@ -428,7 +521,7 @@ async function runSearchFromDatabase(query) {
 
 async function sendMessage() {
     const text = inputMessage.value.trim();
-    if (!text || sending.value) {
+    if ((!text && attachments.value.length === 0) || sending.value) {
         return;
     }
 
@@ -439,9 +532,22 @@ async function sendMessage() {
         return;
     }
 
-    const nextMessages = [...messages.value, { role: 'user', content: text }];
+    let attachmentText = '';
+    if (attachments.value.length > 0) {
+        const serialized = attachments.value.map((item) => {
+            if (item.type.startsWith('image/')) {
+                return `[Image: ${item.name}]${item.dataUrl ? `\n${item.dataUrl}` : ''}`;
+            }
+            return `[File: ${item.name}]\n${item.textContent || '(No readable text extracted)'}`;
+        }).join('\n\n');
+        attachmentText = `\n\nAttached content:\n${serialized}`;
+    }
+
+    const composedUserText = `${text}${attachmentText}`.trim();
+    const nextMessages = [...messages.value, { role: 'user', content: composedUserText }];
     messages.value = nextMessages;
     inputMessage.value = '';
+    attachments.value = [];
     sending.value = true;
     chatErrorMessage.value = '';
     statusText.value = 'Sending...';
@@ -466,6 +572,7 @@ async function sendMessage() {
         if (data.conversation_id) {
             currentConversationId.value = data.conversation_id;
             await syncConversationRoute(data.conversation_id);
+            await loadConversationAssets(data.conversation_id);
         }
 
         messages.value = [...nextMessages, { role: 'assistant', content: data.message ?? '' }];
@@ -482,6 +589,150 @@ async function sendMessage() {
     } finally {
         sending.value = false;
     }
+}
+
+function openFilePicker() {
+    fileInputRef.value?.click();
+}
+
+async function onFilePicked(event) {
+    const input = event.target;
+    const files = Array.from(input?.files ?? []);
+    if (files.length === 0) {
+        return;
+    }
+
+    for (const file of files) {
+        const item = {
+            name: file.name,
+            size: file.size,
+            type: file.type || 'application/octet-stream',
+            textContent: '',
+            dataUrl: '',
+        };
+
+        try {
+            if (item.type.startsWith('image/')) {
+                item.dataUrl = await readFileAsDataUrl(file);
+            } else if (
+                item.type.startsWith('text/') ||
+                file.name.endsWith('.md') ||
+                file.name.endsWith('.csv') ||
+                file.name.endsWith('.json') ||
+                file.name.endsWith('.log')
+            ) {
+                item.textContent = (await file.text()).slice(0, 15000);
+            }
+            attachments.value.push(item);
+        } catch {
+            chatErrorMessage.value = `Unable to read file: ${file.name}`;
+        }
+    }
+
+    input.value = '';
+}
+
+function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Failed to read file.'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function removeAttachment(item) {
+    attachments.value = attachments.value.filter((entry) => !(entry.name === item.name && entry.size === item.size));
+}
+
+async function loadConversationAssets(conversationId) {
+    const parsedConversationId = parseConversationId(conversationId);
+    if (parsedConversationId === null) {
+        conversationAssets.value = [];
+        return;
+    }
+
+    assetsLoading.value = true;
+    try {
+        const data = await apiRequest(`/api/v1/chat/history/${parsedConversationId}/assets?limit=100`);
+        conversationAssets.value = data.assets ?? [];
+    } catch {
+        conversationAssets.value = [];
+    } finally {
+        assetsLoading.value = false;
+    }
+}
+
+async function openAsset(asset, forceDownload = false) {
+    const conversationId = currentConversationId.value;
+    if (!conversationId || !asset?.id) {
+        return;
+    }
+
+    assetActionLoadingId.value = asset.id;
+    try {
+        const data = await apiRequest(
+            `/api/v1/chat/history/${conversationId}/assets/${asset.id}/signed-url?expires_minutes=10`
+        );
+        const url = String(data.signed_url ?? '');
+        if (!url) {
+            throw new Error('Unable to generate secure file URL.');
+        }
+
+        if (forceDownload) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = asset.name || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    } catch (error) {
+        chatErrorMessage.value = error.message || 'Failed to open uploaded asset.';
+    } finally {
+        assetActionLoadingId.value = null;
+    }
+}
+
+function toggleMic() {
+    if (!speechSupported) {
+        chatErrorMessage.value = 'Voice input is not supported in this browser.';
+        return;
+    }
+
+    if (listening.value) {
+        recognition?.stop();
+        return;
+    }
+
+    if (!recognition) {
+        recognition = new SpeechRecognitionCtor();
+        recognition.lang = 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = (event) => {
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+            inputMessage.value = transcript.trim();
+        };
+
+        recognition.onerror = () => {
+            chatErrorMessage.value = 'Microphone error. Please check mic permission.';
+            listening.value = false;
+        };
+        recognition.onend = () => {
+            listening.value = false;
+        };
+    }
+
+    chatErrorMessage.value = '';
+    recognition.start();
+    listening.value = true;
 }
 
 async function loadConversationList() {
@@ -569,6 +820,9 @@ onBeforeUnmount(() => {
     if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer);
     }
+    if (recognition && listening.value) {
+        recognition.stop();
+    }
 });
 
 onMounted(() => {
@@ -588,6 +842,7 @@ watch(
             if (currentConversationId.value !== null || messages.value.length > 0) {
                 currentConversationId.value = null;
                 messages.value = [];
+                conversationAssets.value = [];
                 statusText.value = 'Ready';
             }
             return;
