@@ -108,6 +108,12 @@
 
                 <div class="shrink-0 border-t border-zinc-800 bg-[#212121] px-4 py-4">
                     <div class="mx-auto w-full max-w-3xl">
+                        <div
+                            v-if="chatErrorMessage"
+                            class="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+                        >
+                            {{ chatErrorMessage }}
+                        </div>
                         <div class="rounded-3xl border border-zinc-700 bg-zinc-900 px-4 py-3">
                             <textarea
                                 v-model="inputMessage"
@@ -201,6 +207,7 @@ const inputMessage = ref('');
 const sending = ref(false);
 const statusText = ref('Ready');
 const modelErrorMessage = ref('');
+const chatErrorMessage = ref('');
 const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyHasMore = ref(true);
@@ -341,6 +348,7 @@ async function openConversation(conversationId, syncRoute = true) {
     }
 
     currentConversationId.value = parsedConversationId;
+    chatErrorMessage.value = '';
     statusText.value = 'Loading conversation...';
     try {
         const data = await apiRequest(`/api/v1/chat/history/${parsedConversationId}?limit=200`);
@@ -362,6 +370,7 @@ async function startNewChat() {
     currentConversationId.value = null;
     messages.value = [];
     inputMessage.value = '';
+    chatErrorMessage.value = '';
     await syncConversationRoute(null);
     statusText.value = 'New chat started';
 }
@@ -425,6 +434,7 @@ async function sendMessage() {
 
     if (!model.value) {
         modelErrorMessage.value = 'Please select a model before sending your message.';
+        chatErrorMessage.value = '';
         statusText.value = 'Model selection required';
         return;
     }
@@ -433,6 +443,7 @@ async function sendMessage() {
     messages.value = nextMessages;
     inputMessage.value = '';
     sending.value = true;
+    chatErrorMessage.value = '';
     statusText.value = 'Sending...';
     await scrollMessagesToBottom();
 
@@ -460,8 +471,10 @@ async function sendMessage() {
         messages.value = [...nextMessages, { role: 'assistant', content: data.message ?? '' }];
         await Promise.all([loadConversationList(), loadUsage()]);
         statusText.value = 'Response received';
+        chatErrorMessage.value = '';
         await scrollMessagesToBottom();
     } catch (error) {
+        chatErrorMessage.value = error.message || 'Unable to process chat request at this time.';
         modelErrorMessage.value = String(error.message || '').toLowerCase().includes('model')
             ? (error.message || 'Model error. Please choose another model and try again.')
             : modelErrorMessage.value;
