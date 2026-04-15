@@ -475,6 +475,7 @@ const speechSupported = Boolean(SpeechRecognitionCtor);
 const listening = ref(false);
 let recognition = null;
 let chatPollCancelled = false;
+const ASYNC_MODE_MAX_MS = 300000;
 const isSharedView = computed(() => route.name === 'chat.shared');
 const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
 
@@ -677,7 +678,7 @@ function sleep(ms) {
     });
 }
 
-async function pollAsyncChatJob(jobId, timeoutMs = 60000) {
+async function pollAsyncChatJob(jobId, timeoutMs = ASYNC_MODE_MAX_MS) {
     const startedAt = Date.now();
     let waitMs = 800;
     let transientFailureCount = 0;
@@ -723,7 +724,9 @@ async function pollAsyncChatJob(jobId, timeoutMs = 60000) {
         waitMs = Math.min(3000, waitMs + 250);
     }
 
-    throw new Error('Async response is taking too long. Please try again.');
+    const timeoutError = new Error('Async response exceeded 300 seconds. Switching to sync mode...');
+    timeoutError.code = 'async_timeout_sync_retry';
+    throw timeoutError;
 }
 
 async function sendChatAsAsync(payload) {
@@ -740,7 +743,7 @@ async function sendChatAsAsync(payload) {
     }
 
     statusText.value = 'Generating response...';
-    return await pollAsyncChatJob(jobId);
+    return await pollAsyncChatJob(jobId, ASYNC_MODE_MAX_MS);
 }
 
 function parseConversationId(value) {
@@ -1066,7 +1069,21 @@ async function sendMessage() {
             if (!shouldFallbackToAsync(error)) {
                 throw error;
             }
-            data = await sendChatAsAsync(payload);
+            try {
+                data = await sendChatAsAsync(payload);
+            } catch (asyncError) {
+                if (String(asyncError?.code || '') !== 'async_timeout_sync_retry') {
+                    throw asyncError;
+                }
+
+                asyncModeActive.value = false;
+                statusText.value = 'Async timed out. Retrying in sync mode...';
+                data = await apiRequest('/api/v1/chat', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    timeoutMs: 20000,
+                });
+            }
         }
 
         if (data.conversation_id) {
