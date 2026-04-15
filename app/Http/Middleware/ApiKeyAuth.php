@@ -6,6 +6,7 @@ use App\Models\ApiKey;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class ApiKeyAuth
@@ -67,6 +68,10 @@ class ApiKeyAuth
                 ->get($authApiUrl);
 
             if (! $response->ok()) {
+                Log::warning('Auth user lookup failed in ApiKeyAuth middleware.', [
+                    'endpoint' => $authApiUrl,
+                    'status' => $response->status(),
+                ]);
                 return [];
             }
 
@@ -78,6 +83,11 @@ class ApiKeyAuth
 
             return (array) data_get($data, 'user', []);
         } catch (\Throwable $exception) {
+            Log::error('Auth user lookup exception in ApiKeyAuth middleware.', [
+                'endpoint' => $authApiUrl,
+                'error' => $exception->getMessage(),
+                'exception' => $exception::class,
+            ]);
             return [];
         }
     }

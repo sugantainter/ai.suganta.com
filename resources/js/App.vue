@@ -1,6 +1,6 @@
 <template>
     <div class="min-h-screen bg-zinc-950 text-zinc-100">
-        <header v-if="!isChatRoute" class="border-b border-zinc-800 bg-[#171717]">
+        <header class="border-b border-zinc-800 bg-[#171717]">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
                 <div class="flex items-center gap-3">
                 <img
@@ -27,7 +27,7 @@
                 </nav>
             </div>
         </header>
-        <main :class="isChatRoute ? 'h-screen' : 'mx-auto max-w-6xl px-4 py-8'">
+        <main :class="isChatRoute ? 'h-[calc(100dvh-57px)]' : 'mx-auto max-w-6xl px-4 py-8'">
             <RouterView />
         </main>
     </div>

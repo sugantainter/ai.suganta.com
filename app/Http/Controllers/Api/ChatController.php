@@ -8,6 +8,7 @@ use App\Http\Requests\ChatRequest;
 use App\Services\UnifiedChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
@@ -26,11 +27,27 @@ class ChatController extends Controller
         try {
             $result = $this->chatService->handle($tenantId, $apiKeyId, $payload);
         } catch (TokenLimitExceededException $exception) {
+            Log::warning('Chat request blocked by token limit.', [
+                'tenant_id' => $tenantId,
+                'api_key_id' => $apiKeyId,
+                'model' => $payload['model'] ?? null,
+                'provider' => $payload['provider'] ?? null,
+                'error' => $exception->getMessage(),
+            ]);
             return response()->json([
                 'message' => $exception->getMessage(),
                 'code' => 'token_limit_exceeded',
             ], 429);
         } catch (\Throwable $exception) {
+            Log::error('Chat request failed.', [
+                'tenant_id' => $tenantId,
+                'api_key_id' => $apiKeyId,
+                'model' => $payload['model'] ?? null,
+                'provider' => $payload['provider'] ?? null,
+                'stream' => (bool) ($payload['stream'] ?? false),
+                'error' => $exception->getMessage(),
+                'exception' => $exception::class,
+            ]);
             return response()->json([
                 'message' => 'Unable to process chat request at this time.',
                 'code' => 'chat_request_failed',

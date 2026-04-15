@@ -18,7 +18,7 @@
                     </button>
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" @scroll="handleHistoryScroll">
+                <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" @scroll="handleHistoryScroll">
                     <p class="px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Recent chats</p>
 
                     <button
@@ -86,11 +86,8 @@
                         <div
                             v-for="(message, index) in messages"
                             :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
-                            class="mb-6"
+                            class="mb-4"
                         >
-                            <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                                {{ message.role === 'user' ? 'You' : 'Assistant' }}
-                            </div>
                             <div
                                 class="whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6"
                                 :class="message.role === 'user'

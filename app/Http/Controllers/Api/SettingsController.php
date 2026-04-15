@@ -8,6 +8,7 @@ use App\Services\UnifiedChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class SettingsController extends Controller
 {
@@ -90,6 +91,12 @@ class SettingsController extends Controller
 
             $body = (array) $response->json();
             if (! $response->ok()) {
+                Log::warning('Password update upstream request failed.', [
+                    'tenant_id' => (int) $request->attributes->get('tenant_id'),
+                    'status' => $response->status(),
+                    'endpoint' => $passwordEndpoint,
+                    'upstream_message' => data_get($body, 'message'),
+                ]);
                 return response()->json([
                     'message' => (string) data_get($body, 'message', 'Password update failed.'),
                     'errors' => data_get($body, 'errors', []),
@@ -101,6 +108,12 @@ class SettingsController extends Controller
                 'success' => true,
             ]);
         } catch (\Throwable $exception) {
+            Log::error('Password update proxy failed.', [
+                'tenant_id' => (int) $request->attributes->get('tenant_id'),
+                'endpoint' => $passwordEndpoint,
+                'error' => $exception->getMessage(),
+                'exception' => $exception::class,
+            ]);
             return response()->json([
                 'message' => 'Unable to update password right now.',
             ], 502);
@@ -150,6 +163,13 @@ class SettingsController extends Controller
 
             $body = (array) $response->json();
             if (! $response->ok()) {
+                Log::warning('Profile update upstream request failed.', [
+                    'tenant_id' => (int) $request->attributes->get('tenant_id'),
+                    'status' => $response->status(),
+                    'endpoint' => $profileEndpoint,
+                    'payload_keys' => array_keys($payload),
+                    'upstream_message' => data_get($body, 'message'),
+                ]);
                 return response()->json([
                     'message' => (string) data_get($body, 'message', 'Profile update failed.'),
                     'errors' => data_get($body, 'errors', []),
@@ -162,6 +182,13 @@ class SettingsController extends Controller
                 'success' => true,
             ]);
         } catch (\Throwable $exception) {
+            Log::error('Profile update proxy failed.', [
+                'tenant_id' => (int) $request->attributes->get('tenant_id'),
+                'endpoint' => $profileEndpoint,
+                'payload_keys' => array_keys($payload),
+                'error' => $exception->getMessage(),
+                'exception' => $exception::class,
+            ]);
             return response()->json([
                 'message' => 'Unable to update profile right now.',
             ], 502);
@@ -187,6 +214,10 @@ class SettingsController extends Controller
                 ->get($authApiUrl);
 
             if (! $response->ok()) {
+                Log::warning('Auth user lookup failed in settings controller.', [
+                    'endpoint' => $authApiUrl,
+                    'status' => $response->status(),
+                ]);
                 return [];
             }
 
@@ -199,6 +230,11 @@ class SettingsController extends Controller
 
             return (array) data_get($data, 'user', []);
         } catch (\Throwable $exception) {
+            Log::error('Auth user lookup threw exception in settings controller.', [
+                'endpoint' => $authApiUrl,
+                'error' => $exception->getMessage(),
+                'exception' => $exception::class,
+            ]);
             return [];
         }
     }
@@ -218,6 +254,11 @@ class SettingsController extends Controller
                 ->get($profileEndpoint);
 
             if (! $response->ok()) {
+                Log::warning('Profile fetch failed in settings controller.', [
+                    'tenant_id' => (int) $request->attributes->get('tenant_id'),
+                    'endpoint' => $profileEndpoint,
+                    'status' => $response->status(),
+                ]);
                 return [];
             }
 
@@ -225,6 +266,12 @@ class SettingsController extends Controller
 
             return (array) data_get($payload, 'data', []);
         } catch (\Throwable $exception) {
+            Log::error('Profile fetch threw exception in settings controller.', [
+                'tenant_id' => (int) $request->attributes->get('tenant_id'),
+                'endpoint' => $profileEndpoint,
+                'error' => $exception->getMessage(),
+                'exception' => $exception::class,
+            ]);
             return [];
         }
     }
