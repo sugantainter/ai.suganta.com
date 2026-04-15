@@ -1,6 +1,6 @@
 <template>
     <div class="grid min-h-[80vh] gap-4 md:grid-cols-[320px_1fr]">
-        <aside class="rounded-xl border border-zinc-800 bg-zinc-900/70">
+        <aside class="rounded-2xl border border-zinc-800/80 bg-linear-to-b from-zinc-900/95 to-zinc-950/95 shadow-xl shadow-black/30">
             <div class="space-y-3 border-b border-zinc-800 p-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-semibold tracking-wide text-zinc-200">Conversations</h2>
@@ -42,7 +42,7 @@
             </div>
         </aside>
 
-        <section class="flex min-h-[80vh] flex-col rounded-xl border border-zinc-800 bg-zinc-900/70">
+        <section class="flex min-h-[80vh] flex-col rounded-2xl border border-zinc-800/80 bg-linear-to-b from-zinc-900/90 to-zinc-950/90 shadow-xl shadow-black/30">
             <div class="grid gap-3 border-b border-zinc-800 p-4 md:grid-cols-4">
                 <div>
                     <label class="mb-1 block text-xs text-zinc-400">Model</label>

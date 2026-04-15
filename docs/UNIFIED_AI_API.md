@@ -9,6 +9,9 @@ This API exposes unified endpoints for OpenAI, Gemini, Anthropic, Grok, DeepSeek
 - `GET /api/v1/chat/history/{conversationId}?limit=100`
 - `GET /api/v1/usage`
 - `GET /api/v1/models`
+- `GET /api/v1/settings/overview`
+- `GET /api/v1/provider-keys`
+- `POST /api/v1/provider-keys`
 
 ## Request Body
 
@@ -81,6 +84,19 @@ Store tenant provider credentials in `ai_provider_credentials`.
 If a tenant credential is absent, service falls back to env provider keys.
 
 Provider is auto-detected from selected `model` using `ai_models`. Clients only need to send `model`.
+
+Authenticated user can store tenant-scoped provider keys:
+
+- `GET /api/v1/settings/overview` (auth user profile + usage + key status)
+- `GET /api/v1/provider-keys` (shows saved/not-saved status)
+- `POST /api/v1/provider-keys`
+```json
+{
+  "provider": "openai",
+  "api_key": "sk-...",
+  "is_active": true
+}
+```
 
 ## Rate limiting
 

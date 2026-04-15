@@ -220,6 +220,53 @@ class UnifiedChatService
         ])->values()->all();
     }
 
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function listProviderCredentials(int $tenantId): array
+    {
+        $providers = array_keys((array) config('ai.providers', []));
+        $credentials = ProviderCredential::query()
+            ->where('tenant_id', $tenantId)
+            ->get()
+            ->keyBy('provider');
+
+        return collect($providers)->map(function (string $provider) use ($credentials): array {
+            $credential = $credentials->get($provider);
+
+            return [
+                'provider' => $provider,
+                'has_custom_key' => $credential !== null,
+                'is_active' => (bool) ($credential?->is_active ?? false),
+                'last_used_at' => optional($credential?->last_used_at)?->toIso8601String(),
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function storeProviderCredential(int $tenantId, string $provider, string $apiKey, bool $isActive = true): array
+    {
+        $credential = ProviderCredential::query()->updateOrCreate(
+            [
+                'tenant_id' => $tenantId,
+                'provider' => $provider,
+            ],
+            [
+                'encrypted_api_key' => $apiKey,
+                'is_active' => $isActive,
+                'meta' => ['source' => 'user'],
+            ]
+        );
+
+        return [
+            'provider' => $credential->provider,
+            'has_custom_key' => true,
+            'is_active' => (bool) $credential->is_active,
+        ];
+    }
+
     private function resolveProviderApiKey(int $tenantId, string $provider): ?string
     {
         $tenantCredential = ProviderCredential::query()

@@ -98,4 +98,5 @@ class ChatController extends Controller
             'models' => $this->chatService->listModels(),
         ]);
     }
+
 }
