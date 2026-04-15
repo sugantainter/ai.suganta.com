@@ -751,6 +751,24 @@ function parseConversationId(value) {
     return parsed;
 }
 
+function extractAssistantMessage(data) {
+    if (!data || typeof data !== 'object') {
+        return '';
+    }
+
+    const candidates = [
+        data.message,
+        data.content,
+        data.result?.message,
+        data.result?.content,
+        data.response?.message,
+        data.response?.content,
+    ];
+
+    const firstText = candidates.find((item) => typeof item === 'string' && item.trim() !== '');
+    return firstText ? String(firstText) : '';
+}
+
 async function syncConversationRoute(conversationId) {
     if (isSharedView.value) {
         return;
@@ -1059,7 +1077,7 @@ async function sendMessage() {
 
         messages.value = [...nextMessages, {
             role: 'assistant',
-            content: data.message ?? '',
+            content: extractAssistantMessage(data),
             attachments: [],
             processing: false,
         }];
