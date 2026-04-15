@@ -483,6 +483,7 @@ const listening = ref(false);
 let recognition = null;
 let chatPollCancelled = false;
 const ASYNC_MODE_MAX_MS = 300000;
+const CHAT_SYNC_REQUEST_TIMEOUT_MS = 300000;
 const isSharedView = computed(() => route.name === 'chat.shared');
 const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
 
@@ -1118,7 +1119,7 @@ async function sendMessage() {
             data = await apiRequest('/api/v1/chat', {
                 method: 'POST',
                 body: JSON.stringify(payload),
-                timeoutMs: 8000,
+                timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
             });
             if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
                 asyncModeActive.value = true;
@@ -1141,7 +1142,7 @@ async function sendMessage() {
                 data = await apiRequest('/api/v1/chat', {
                     method: 'POST',
                     body: JSON.stringify(payload),
-                    timeoutMs: 20000,
+                    timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
                 });
             }
         }
