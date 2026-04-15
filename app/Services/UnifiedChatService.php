@@ -161,6 +161,73 @@ class UnifiedChatService
     /**
      * @return array<string,mixed>
      */
+    public function searchConversationHistories(int $tenantId, string $query, int $limit = 20, int $page = 1): array
+    {
+        $connection = DB::connection((string) config('ai.history_connection'));
+        $limit = max(1, min($limit, 100));
+        $page = max(1, $page);
+        $term = trim($query);
+
+        if ($term === '') {
+            return $this->listConversationHistories($tenantId, $limit, $page);
+        }
+
+        $latestAssistantSub = $connection->table('ai_messages')
+            ->selectRaw('MAX(id) as id, ai_conversation_id')
+            ->where('role', 'assistant')
+            ->groupBy('ai_conversation_id');
+
+        $queryBuilder = $connection->table('ai_conversations')
+            ->leftJoinSub($latestAssistantSub, 'last_message_ids', function ($join): void {
+                $join->on('last_message_ids.ai_conversation_id', '=', 'ai_conversations.id');
+            })
+            ->leftJoin('ai_messages as last_message', 'last_message.id', '=', 'last_message_ids.id')
+            ->where('ai_conversations.user_id', $tenantId)
+            ->where(function ($search) use ($term): void {
+                $likeTerm = '%'.$term.'%';
+                $search->where('ai_conversations.subject', 'like', $likeTerm)
+                    ->orWhere('last_message.content', 'like', $likeTerm);
+            })
+            ->select([
+                'ai_conversations.*',
+                'last_message.content as last_assistant_message',
+            ])
+            ->orderByDesc('last_used_at')
+            ->orderByDesc('id');
+
+        $total = (clone $queryBuilder)->count();
+        $rows = $queryBuilder->forPage($page, $limit)->get();
+
+        $conversations = $rows->map(function ($conversation): array {
+            return [
+                'id' => (int) $conversation->id,
+                'subject' => (string) ($conversation->subject ?? ''),
+                'status' => (string) ($conversation->status ?? 'active'),
+                'model' => (string) ($conversation->model ?? ''),
+                'purpose' => (string) ($conversation->purpose ?? ''),
+                'total_prompt_tokens' => (int) ($conversation->total_prompt_tokens ?? 0),
+                'total_completion_tokens' => (int) ($conversation->total_completion_tokens ?? 0),
+                'total_tokens' => (int) ($conversation->total_tokens ?? 0),
+                'last_used_at' => (string) ($conversation->last_used_at ?? ''),
+                'created_at' => (string) ($conversation->created_at ?? ''),
+                'updated_at' => (string) ($conversation->updated_at ?? ''),
+                'last_assistant_message' => (string) ($conversation->last_assistant_message ?? ''),
+            ];
+        })->values()->all();
+
+        return [
+            'tenant_id' => $tenantId,
+            'query' => $term,
+            'page' => $page,
+            'limit' => $limit,
+            'total' => $total,
+            'conversations' => $conversations,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     public function getUsageSummary(int $tenantId): array
     {
         $totalUsage = $this->getOrCreateUsageState($tenantId);

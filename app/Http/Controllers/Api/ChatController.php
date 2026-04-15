@@ -85,6 +85,16 @@ class ChatController extends Controller
         return response()->json($this->chatService->listConversationHistories($tenantId, $limit, $page));
     }
 
+    public function searchHistories(Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $query = (string) $request->query('q', '');
+        $limit = (int) $request->integer('limit', 20);
+        $page = (int) $request->integer('page', 1);
+
+        return response()->json($this->chatService->searchConversationHistories($tenantId, $query, $limit, $page));
+    }
+
     public function usage(Request $request): JsonResponse
     {
         $tenantId = (int) $request->attributes->get('tenant_id');

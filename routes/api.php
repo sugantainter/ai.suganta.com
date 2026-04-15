@@ -9,6 +9,7 @@ Route::prefix('v1')
     ->group(function (): void {
         Route::post('/chat', [ChatController::class, 'chat']);
         Route::get('/chat/histories', [ChatController::class, 'histories']);
+        Route::get('/chat/histories/search', [ChatController::class, 'searchHistories']);
         Route::get('/chat/history/{conversationId}', [ChatController::class, 'history']);
         Route::get('/usage', [ChatController::class, 'usage']);
         Route::get('/models', [ChatController::class, 'models']);
