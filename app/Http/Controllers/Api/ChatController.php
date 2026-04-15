@@ -95,6 +95,23 @@ class ChatController extends Controller
         return response()->json($data);
     }
 
+    public function deleteHistory(int $conversationId, Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $deleted = $this->chatService->deleteConversation($tenantId, $conversationId);
+        if (! $deleted) {
+            return response()->json([
+                'message' => 'Conversation not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'message' => 'Conversation deleted successfully.',
+            'conversation_id' => $conversationId,
+            'deleted' => true,
+        ]);
+    }
+
     public function histories(Request $request): JsonResponse
     {
         $tenantId = (int) $request->attributes->get('tenant_id');

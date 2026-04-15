@@ -181,6 +181,91 @@
                     </div>
                 </div>
 
+                <div id="settings-section-uploads" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
+                    <div class="mb-3 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-semibold text-white">Uploads</h2>
+                            <p class="mt-1 text-sm text-zinc-400">All files and images uploaded in your conversations.</p>
+                        </div>
+                        <button
+                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                            type="button"
+                            :disabled="uploadsLoading"
+                            @click="loadUploads"
+                        >
+                            {{ uploadsLoading ? 'Refreshing...' : 'Refresh' }}
+                        </button>
+                    </div>
+
+                    <div class="mb-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input
+                            v-model.trim="uploadsSearch"
+                            type="text"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            placeholder="Search uploads by file name or type..."
+                        />
+                        <select
+                            v-model="uploadsTypeFilter"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 sm:w-44"
+                        >
+                            <option value="all">All types</option>
+                            <option value="image">Images</option>
+                            <option value="doc">Documents</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3 flex flex-wrap gap-2">
+                        <button
+                            v-for="chip in uploadTypeChips"
+                            :key="`upload-chip-${chip.value}`"
+                            type="button"
+                            class="rounded-full border px-3 py-1 text-xs transition"
+                            :class="uploadsTypeFilter === chip.value
+                                ? 'border-zinc-500 bg-zinc-800 text-white'
+                                : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
+                            @click="uploadsTypeFilter = chip.value"
+                        >
+                            {{ chip.label }} ({{ chip.count }})
+                        </button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <p v-if="uploadsLoading" class="py-6 text-center text-sm text-zinc-500">Loading uploads...</p>
+                        <p v-else-if="!filteredUploads.length" class="py-6 text-center text-sm text-zinc-500">
+                            {{ userUploads.length ? 'No uploads match your filters.' : 'No uploads found yet.' }}
+                        </p>
+                        <div
+                            v-for="asset in filteredUploads"
+                            :key="`settings-upload-${asset.id}`"
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2"
+                        >
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium text-zinc-200">{{ asset.name }}</p>
+                                <p class="truncate text-xs text-zinc-500">
+                                    {{ asset.mime_type || asset.attachment_type }} · Conversation #{{ asset.conversation_id }}
+                                </p>
+                            </div>
+                            <div class="ml-2 flex items-center gap-1">
+                                <button
+                                    class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                    :disabled="uploadAssetActionLoadingId === asset.id"
+                                    @click="openUploadAsset(asset, false)"
+                                >
+                                    Preview
+                                </button>
+                                <button
+                                    class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                    :disabled="uploadAssetActionLoadingId === asset.id"
+                                    @click="openUploadAsset(asset, true)"
+                                >
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="settings-section-security" class="grid gap-4 xl:grid-cols-2">
                     <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                         <h2 class="text-base font-semibold text-white">Saved key status</h2>
@@ -263,6 +348,11 @@ const statusText = ref('Ready');
 const activeSection = ref('general');
 const passwordSaving = ref(false);
 const passwordStatusText = ref('Password strength: min 8 chars, include mix of character types.');
+const uploadsLoading = ref(false);
+const userUploads = ref([]);
+const uploadAssetActionLoadingId = ref(null);
+const uploadsSearch = ref('');
+const uploadsTypeFilter = ref('all');
 const passwordForm = ref({
     current_password: '',
     password: '',
@@ -273,6 +363,7 @@ const settingsScrollRef = ref(null);
 const menuItems = [
     { id: 'general', label: 'General' },
     { id: 'usage', label: 'Usage' },
+    { id: 'uploads', label: 'Uploads' },
     { id: 'api-keys', label: 'API Keys' },
     { id: 'security', label: 'Security' },
 ];
@@ -309,6 +400,71 @@ const providerOptions = computed(() => (providerKeys.value ?? []).map((item) => 
 
 const canUpdatePassword = computed(() => {
     return Boolean(passwordForm.value.current_password && passwordForm.value.password && passwordForm.value.password_confirmation);
+});
+
+function isAssetOfType(asset, type) {
+    const mimeType = String(asset?.mime_type ?? '').toLowerCase();
+    const attachmentType = String(asset?.attachment_type ?? '').toLowerCase();
+    const fileName = String(asset?.name ?? '').toLowerCase();
+    const typeDescriptor = `${mimeType} ${attachmentType}`;
+
+    if (type === 'image') {
+        return typeDescriptor.includes('image');
+    }
+
+    if (type === 'doc') {
+        return attachmentType.includes('document')
+            || mimeType.includes('text/')
+            || mimeType.includes('word')
+            || mimeType.includes('officedocument')
+            || fileName.endsWith('.doc')
+            || fileName.endsWith('.docx')
+            || fileName.endsWith('.txt')
+            || fileName.endsWith('.md')
+            || fileName.endsWith('.csv')
+            || fileName.endsWith('.json');
+    }
+
+    if (type === 'pdf') {
+        return mimeType.includes('pdf') || fileName.endsWith('.pdf');
+    }
+
+    return true;
+}
+
+const uploadsMatchingSearch = computed(() => {
+    const normalizedSearch = uploadsSearch.value.toLowerCase().trim();
+
+    if (!normalizedSearch) {
+        return userUploads.value ?? [];
+    }
+
+    return (userUploads.value ?? []).filter((asset) => {
+        const mimeType = String(asset?.mime_type ?? '').toLowerCase();
+        const attachmentType = String(asset?.attachment_type ?? '').toLowerCase();
+        const fileName = String(asset?.name ?? '').toLowerCase();
+        const typeDescriptor = `${mimeType} ${attachmentType}`;
+
+        return fileName.includes(normalizedSearch) || typeDescriptor.includes(normalizedSearch);
+    });
+});
+
+const uploadTypeChips = computed(() => {
+    const uploads = uploadsMatchingSearch.value ?? [];
+    const images = uploads.filter((asset) => isAssetOfType(asset, 'image')).length;
+    const docs = uploads.filter((asset) => isAssetOfType(asset, 'doc')).length;
+    const pdf = uploads.filter((asset) => isAssetOfType(asset, 'pdf')).length;
+
+    return [
+        { value: 'all', label: 'All', count: uploads.length },
+        { value: 'image', label: 'Images', count: images },
+        { value: 'doc', label: 'Documents', count: docs },
+        { value: 'pdf', label: 'PDF', count: pdf },
+    ];
+});
+
+const filteredUploads = computed(() => {
+    return (uploadsMatchingSearch.value ?? []).filter((asset) => isAssetOfType(asset, uploadsTypeFilter.value));
 });
 
 async function parseApiResponse(response) {
@@ -361,6 +517,51 @@ async function loadProviderKeys() {
 
     if (!providerOptions.value.includes(provider.value)) {
         provider.value = providerOptions.value[0] ?? '';
+    }
+}
+
+async function loadUploads() {
+    uploadsLoading.value = true;
+    try {
+        const data = await apiRequest('/api/v1/settings/uploads?limit=200&page=1');
+        userUploads.value = data.uploads ?? [];
+    } catch (error) {
+        userUploads.value = [];
+        showErrorAlert(error.message || 'Failed to load uploads', 'Uploads load failed');
+    } finally {
+        uploadsLoading.value = false;
+    }
+}
+
+async function openUploadAsset(asset, forceDownload = false) {
+    const conversationId = Number(asset?.conversation_id ?? 0);
+    const assetId = Number(asset?.id ?? 0);
+    if (!conversationId || !assetId) {
+        return;
+    }
+
+    uploadAssetActionLoadingId.value = assetId;
+    try {
+        const data = await apiRequest(`/api/v1/chat/history/${conversationId}/assets/${assetId}/signed-url?expires_minutes=10`);
+        const url = String(data.signed_url ?? '');
+        if (!url) {
+            throw new Error('Unable to generate secure file URL.');
+        }
+
+        if (forceDownload) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = asset.name || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    } catch (error) {
+        showErrorAlert(error.message || 'Failed to open upload asset.', 'Upload access failed');
+    } finally {
+        uploadAssetActionLoadingId.value = null;
     }
 }
 
@@ -474,6 +675,7 @@ onMounted(async () => {
     statusText.value = 'Loading...';
     try {
         await loadOverview();
+        await loadUploads();
         statusText.value = 'Ready';
     } catch (error) {
         statusText.value = error.message || 'Failed to load settings';

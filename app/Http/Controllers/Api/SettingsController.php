@@ -44,6 +44,17 @@ class SettingsController extends Controller
         ]);
     }
 
+    public function uploads(Request $request): JsonResponse
+    {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $limit = (int) $request->integer('limit', 100);
+        $page = (int) $request->integer('page', 1);
+
+        return response()->json([
+            'uploads' => $this->chatService->listUserUploadAssets($tenantId, $limit, $page),
+        ]);
+    }
+
     public function storeProviderKey(ProviderCredentialRequest $request): JsonResponse
     {
         $tenantId = (int) $request->attributes->get('tenant_id');

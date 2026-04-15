@@ -12,6 +12,7 @@ use App\Models\ProviderCredential;
 use App\Models\RequestLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class UnifiedChatService
@@ -52,7 +53,6 @@ class UnifiedChatService
             $providerPayload = $payload;
             if (! $usingCustomProviderKey) {
                 $this->assertUserWithinTokenLimit($usageState);
-                $providerPayload = $this->applyTokenBudgetToPayload($providerPayload, $usageState);
             }
 
             $start = microtime(true);
@@ -118,6 +118,55 @@ class UnifiedChatService
             'conversation' => (array) $conversation,
             'messages' => $messages->map(fn ($message) => (array) $message)->values()->all(),
         ];
+    }
+
+    public function deleteConversation(int $tenantId, int $conversationId): bool
+    {
+        $conversation = AiConversation::query()
+            ->where('id', $conversationId)
+            ->where('user_id', $tenantId)
+            ->first();
+
+        if (! $conversation) {
+            return false;
+        }
+
+        $assets = AiUploadAsset::query()
+            ->where('tenant_id', $tenantId)
+            ->where('ai_conversation_id', $conversationId)
+            ->get(['id', 'storage_disk', 'storage_path']);
+
+        DB::connection((string) config('ai.history_connection'))->transaction(function () use ($tenantId, $conversationId): void {
+            AiMessage::query()
+                ->where('ai_conversation_id', $conversationId)
+                ->where('user_id', $tenantId)
+                ->delete();
+
+            AiUploadAsset::query()
+                ->where('tenant_id', $tenantId)
+                ->where('ai_conversation_id', $conversationId)
+                ->delete();
+
+            AiConversation::query()
+                ->where('id', $conversationId)
+                ->where('user_id', $tenantId)
+                ->delete();
+        });
+
+        foreach ($assets as $asset) {
+            $disk = (string) ($asset->storage_disk ?? '');
+            $path = (string) ($asset->storage_path ?? '');
+            if ($disk === '' || $path === '') {
+                continue;
+            }
+            try {
+                Storage::disk($disk)->delete($path);
+            } catch (\Throwable) {
+                // Best-effort storage cleanup; DB deletion is the source of truth.
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -507,6 +556,34 @@ class UnifiedChatService
     }
 
     /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function listUserUploadAssets(int $tenantId, int $limit = 100, int $page = 1): array
+    {
+        $limit = max(1, min($limit, 200));
+        $page = max(1, $page);
+
+        $assets = AiUploadAsset::query()
+            ->where('tenant_id', $tenantId)
+            ->orderByDesc('id')
+            ->forPage($page, $limit)
+            ->get();
+
+        return $assets->map(static fn (AiUploadAsset $asset): array => [
+            'id' => (int) $asset->id,
+            'conversation_id' => (int) ($asset->ai_conversation_id ?? 0),
+            'attachment_type' => (string) $asset->attachment_type,
+            'name' => (string) $asset->name,
+            'mime_type' => (string) ($asset->mime_type ?? ''),
+            'size_bytes' => (int) ($asset->size_bytes ?? 0),
+            'storage_disk' => (string) $asset->storage_disk,
+            'storage_path' => (string) $asset->storage_path,
+            'text_preview' => (string) ($asset->text_preview ?? ''),
+            'created_at' => optional($asset->created_at)?->toIso8601String(),
+        ])->values()->all();
+    }
+
+    /**
      * @return array{using_custom_provider_key: bool, provider_api_key: string|null}
      */
     private function resolveProviderAccess(string $provider, array $activeCustomProviderKeys): array
@@ -726,22 +803,6 @@ class UnifiedChatService
         if ($usedTokens >= $tokenLimit) {
             throw new TokenLimitExceededException($tokenLimit, $usedTokens);
         }
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function applyTokenBudgetToPayload(array $payload, object $usageState): array
-    {
-        $usedTokens = (int) ($usageState->total_tokens ?? 0);
-        $tokenLimit = (int) ($usageState->token_limit ?? config('ai.default_user_token_limit', 10000));
-        $remaining = max(1, $tokenLimit - $usedTokens);
-        $requestedMaxTokens = (int) ($payload['max_tokens'] ?? 1024);
-
-        $payload['max_tokens'] = max(1, min($requestedMaxTokens, $remaining));
-
-        return $payload;
     }
 
     /**

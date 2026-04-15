@@ -49,18 +49,30 @@
                 <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" @scroll="handleHistoryScroll">
                     <p class="px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Recent chats</p>
 
-                    <button
+                    <div
                         v-for="conversation in conversations"
                         :key="conversation.id"
-                        class="mb-1 w-full rounded-lg px-3 py-2 text-left text-sm transition"
-                        :class="currentConversationId === conversation.id
-                            ? 'bg-zinc-800 text-white'
-                            : 'text-zinc-300 hover:bg-zinc-800/70'"
-                        @click="openConversation(conversation.id)"
+                        class="mb-1 flex items-start gap-1 rounded-lg px-1 py-1 text-sm transition"
+                        :class="currentConversationId === conversation.id ? 'bg-zinc-800' : 'hover:bg-zinc-800/70'"
                     >
-                        <p class="truncate font-medium">{{ conversation.subject || 'Untitled chat' }}</p>
-                        <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
-                    </button>
+                        <button
+                            class="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
+                            :class="currentConversationId === conversation.id ? 'text-white' : 'text-zinc-300'"
+                            type="button"
+                            @click="openConversation(conversation.id)"
+                        >
+                            <p class="truncate font-medium">{{ conversation.subject || 'Untitled chat' }}</p>
+                            <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
+                        </button>
+                        <button
+                            class="mt-0.5 rounded-md px-2 py-1 text-xs text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60"
+                            :disabled="deletingConversationId === conversation.id"
+                            type="button"
+                            @click.stop="deleteConversation(conversation.id)"
+                        >
+                            {{ deletingConversationId === conversation.id ? '...' : 'Delete' }}
+                        </button>
+                    </div>
 
                     <p v-if="!conversations.length" class="px-3 py-2 text-xs text-zinc-500">No conversations yet.</p>
                     <p v-if="historyLoading" class="px-3 py-2 text-xs text-zinc-500">Loading history...</p>
@@ -329,7 +341,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { showErrorAlert } from '../utils/alerts';
+import { showConfirmAlert, showErrorAlert } from '../utils/alerts';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
 import ChatSearchModal from '../components/chat/ChatSearchModal.vue';
@@ -357,7 +369,6 @@ let activeSearchRequestId = 0;
 const currentConversationId = ref(null);
 const model = ref('gemini-2.5-flash-lite');
 const temperature = ref(0.7);
-const maxTokens = ref(512);
 const capabilityFilter = ref('all');
 const inputMessage = ref('');
 const attachments = ref([]);
@@ -369,6 +380,7 @@ const conversationAssets = ref([]);
 const assetsLoading = ref(false);
 const assetActionLoadingId = ref(null);
 const uploadsModalOpen = ref(false);
+const deletingConversationId = ref(null);
 const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyHasMore = ref(true);
@@ -684,6 +696,45 @@ async function openConversationFromSearch(conversationId) {
     closeSearchModal();
 }
 
+async function deleteConversation(conversationId) {
+    const parsedConversationId = parseConversationId(conversationId);
+    if (parsedConversationId === null || isSharedView.value || deletingConversationId.value) {
+        return;
+    }
+
+    const targetConversation = conversations.value.find((item) => Number(item?.id) === parsedConversationId);
+    const targetTitle = String(targetConversation?.subject || 'this chat');
+    const didDelete = await showConfirmAlert({
+        title: 'Delete chat?',
+        text: `Delete "${targetTitle}"? This cannot be undone.`,
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Keep',
+        confirmButtonColor: '#dc2626',
+        onConfirm: async () => {
+            deletingConversationId.value = parsedConversationId;
+            try {
+                await apiRequest(`/api/v1/chat/history/${parsedConversationId}`, {
+                    method: 'DELETE',
+                });
+
+                conversations.value = conversations.value.filter((item) => Number(item?.id) !== parsedConversationId);
+                searchResults.value = searchResults.value.filter((item) => Number(item?.id) !== parsedConversationId);
+
+                if (currentConversationId.value === parsedConversationId) {
+                    await startNewChat();
+                } else {
+                    statusText.value = 'Conversation deleted';
+                }
+            } finally {
+                deletingConversationId.value = null;
+            }
+        },
+    });
+    if (!didDelete) {
+        statusText.value = 'Delete cancelled';
+    }
+}
+
 async function runSearchFromDatabase(query) {
     const trimmed = String(query ?? '').trim();
     if (trimmed === '') {
@@ -765,7 +816,6 @@ async function sendMessage() {
             save_history: true,
             stream: false,
             temperature: Number(temperature.value),
-            max_tokens: Number(maxTokens.value),
             messages: nextMessages,
             attachments: currentAttachments.map((item) => ({
                 name: String(item.name || 'attachment'),
