@@ -589,7 +589,7 @@ Local storage uses fixed string keys such as `auth_token`, `user`, `auth_device_
 
 **`GET /auth/user`** · Public (no `401` when logged out)
 
-Send **`credentials: 'include'`** for session auth, and/or **`Authorization: Bearer`** for token auth. Resolves the user the same way as `auth:sanctum`.
+Send **`credentials: 'include'`** for session auth, and/
 
 ### Success — logged out — `200 OK`
 
