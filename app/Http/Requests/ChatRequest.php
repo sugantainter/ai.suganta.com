@@ -24,6 +24,7 @@ class ChatRequest extends FormRequest
             'subject' => ['nullable', 'string', 'max:255'],
             'purpose' => ['nullable', 'string', 'max:100'],
             'save_history' => ['nullable', 'boolean'],
+            'use_full_context' => ['nullable', 'boolean'],
             'temperature' => ['nullable', 'numeric', 'between:0,2'],
             'max_tokens' => ['nullable', 'integer', 'between:1,8192'],
             'messages' => ['required', 'array', 'min:1'],

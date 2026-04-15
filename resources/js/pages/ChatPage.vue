@@ -484,6 +484,7 @@ let recognition = null;
 let chatPollCancelled = false;
 const ASYNC_MODE_MAX_MS = 300000;
 const CHAT_SYNC_REQUEST_TIMEOUT_MS = 300000;
+const MAX_CONTEXT_MESSAGES = 12;
 const isSharedView = computed(() => route.name === 'chat.shared');
 const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
 
@@ -832,6 +833,91 @@ function extractAssistantMessage(data) {
     return firstText ? String(firstText) : '';
 }
 
+function normalizeMessagesForApi(messages) {
+    return (messages ?? [])
+        .filter((message) => message && typeof message === 'object')
+        .map((message) => ({
+            role: String(message.role || 'user'),
+            content: String(message.content || ''),
+        }))
+        .filter((message) => message.content.trim() !== '');
+}
+
+function trimConversationContext(messages) {
+    const normalized = normalizeMessagesForApi(messages);
+    if (normalized.length <= MAX_CONTEXT_MESSAGES) {
+        return normalized;
+    }
+    return normalized.slice(-MAX_CONTEXT_MESSAGES);
+}
+
+function shouldUseFocusedContext(text, currentAttachments) {
+    const normalizedText = String(text || '').trim().toLowerCase();
+    if (currentAttachments.length > 0) {
+        return true;
+    }
+
+    if (normalizedText === '') {
+        return false;
+    }
+
+    const explicitHistoryCues = [
+        'continue',
+        'previous',
+        'earlier',
+        'same as before',
+        'as above',
+        'from before',
+        'last answer',
+    ];
+    const asksForHistory = explicitHistoryCues.some((cue) => normalizedText.includes(cue));
+    if (asksForHistory) {
+        return false;
+    }
+
+    // Treat short standalone questions as one-off by default.
+    return normalizedText.length <= 180;
+}
+
+function userExplicitlyWantsFullContext(text) {
+    const normalizedText = String(text || '').trim().toLowerCase();
+    if (normalizedText === '') {
+        return false;
+    }
+
+    const fullContextCues = [
+        'full context',
+        'entire context',
+        'whole chat',
+        'all previous messages',
+        'use history',
+        'previous context',
+        'based on our conversation',
+        'from our chat history',
+    ];
+
+    return fullContextCues.some((cue) => normalizedText.includes(cue));
+}
+
+function buildPayloadMessages(nextMessages, composedUserText, currentAttachments) {
+    if (userExplicitlyWantsFullContext(composedUserText)) {
+        return trimConversationContext(nextMessages);
+    }
+
+    if (!shouldUseFocusedContext(composedUserText, currentAttachments)) {
+        return trimConversationContext(nextMessages);
+    }
+
+    const focusedInstruction = currentAttachments.length > 0
+        ? 'Answer only based on the latest user request and uploaded files/images. Do not include unrelated prior chat context.'
+        : 'Answer only the latest user request unless the user explicitly asks to use previous context.';
+
+    return [
+        { role: 'system', content: focusedInstruction },
+        { role: 'user', content: String(composedUserText || '') },
+    ];
+}
+
 async function syncConversationRoute(conversationId) {
     if (isSharedView.value) {
         return;
@@ -1103,7 +1189,8 @@ async function sendMessage() {
         save_history: true,
         stream: false,
         temperature: Number(temperature.value),
-        messages: nextMessages,
+        messages: buildPayloadMessages(nextMessages, composedUserText, currentAttachments),
+        use_full_context: userExplicitlyWantsFullContext(composedUserText),
         attachments: currentAttachments.map((item) => ({
             name: String(item.name || 'attachment'),
             type: item.type?.startsWith('image/') ? 'image' : (item.textContent ? 'text' : 'file'),

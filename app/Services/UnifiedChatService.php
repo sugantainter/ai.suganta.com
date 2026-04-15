@@ -15,6 +15,7 @@ use App\Models\RequestLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -58,6 +59,8 @@ class UnifiedChatService
                 $fallbacks = [];
                 $payload['provider'] = $resolvedModelProvider;
             }
+            $providerPayloadBase = $this->buildProviderPayload($payload);
+            $providerPayloadBase = $this->optimizeProviderPayloadForTokenEfficiency($providerPayloadBase, $payload);
             $providerOrder = collect(array_merge([$preferred], $fallbacks))
                 ->map(fn ($provider) => (string) $provider)
                 ->unique()
@@ -84,7 +87,8 @@ class UnifiedChatService
                     continue;
                 }
 
-                $providerPayload = $payload;
+                $providerPayload = $providerPayloadBase;
+                $providerPayload['provider'] = $providerKey;
                 if (! $usingCustomProviderKey) {
                     $this->assertUserWithinTokenLimit($usageState);
                 }
@@ -103,7 +107,7 @@ class UnifiedChatService
 
                     $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, $response, $latencyMs, null);
                     $this->resetProviderCircuit($providerKey);
-                    $this->persistConversationHistory($conversation, $providerPayload, $response, $providerKey);
+                    $this->persistConversationHistory($conversation, $payload, $response, $providerKey);
                     $response['conversation_id'] = $conversation->id;
 
                     return $response;
@@ -777,6 +781,19 @@ class UnifiedChatService
             return;
         }
 
+        try {
+            $encodedEntry = json_encode($entry, JSON_UNESCAPED_UNICODE);
+            if (is_string($encodedEntry) && $encodedEntry !== '') {
+                Redis::rpush((string) config('ai.request_log_redis_queue_key', 'ai:reqlog:queue'), $encodedEntry);
+            } else {
+                throw new \RuntimeException('Unable to encode request log payload.');
+            }
+            SyncBufferedRequestLogJob::dispatch()->onQueue('ai-sync');
+            return;
+        } catch (\Throwable) {
+            // Fallback to legacy cache buffering when Redis list operations are unavailable.
+        }
+
         $bufferKey = 'ai:reqlog:'.Str::uuid();
         $ttlSeconds = max(60, (int) config('ai.request_log_buffer_ttl_seconds', 600));
         Cache::put($bufferKey, $entry, now()->addSeconds($ttlSeconds));
@@ -790,28 +807,23 @@ class UnifiedChatService
         }
 
         $connection = DB::connection((string) config('ai.usage_connection'));
-        $existing = $connection->table('ai_user_usages')->where('user_id', $tenantId)->first();
         $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
+        $now = now();
 
-        if ($existing) {
-            $connection->table('ai_user_usages')
-                ->where('user_id', $tenantId)
-                ->update([
-                    'total_tokens' => (int) $existing->total_tokens + $tokens,
-                    'token_limit' => (int) ($existing->token_limit ?? $defaultTokenLimit),
-                    'updated_at' => now(),
-                ]);
+        // Ensure row exists once, then atomically increment to avoid read-before-write races.
+        $connection->table('ai_user_usages')->upsert([
+            [
+                'user_id' => $tenantId,
+                'total_tokens' => 0,
+                'token_limit' => $defaultTokenLimit,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ], ['user_id'], ['updated_at']);
 
-            return;
-        }
-
-        $connection->table('ai_user_usages')->insert([
-            'user_id' => $tenantId,
-            'total_tokens' => $tokens,
-            'token_limit' => $defaultTokenLimit,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $connection->table('ai_user_usages')
+            ->where('user_id', $tenantId)
+            ->increment('total_tokens', $tokens, ['updated_at' => $now]);
     }
 
     private function resolveConversation(int $tenantId, array $payload): AiConversation
@@ -908,20 +920,26 @@ class UnifiedChatService
     private function getOrCreateUsageState(int $tenantId): object
     {
         $connection = DB::connection((string) config('ai.usage_connection'));
-        $usage = $connection->table('ai_user_usages')->where('user_id', $tenantId)->first();
+        $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
+        $now = now();
+
+        $connection->table('ai_user_usages')->upsert([
+            [
+                'user_id' => $tenantId,
+                'total_tokens' => 0,
+                'token_limit' => $defaultTokenLimit,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ], ['user_id'], ['updated_at']);
+
+        $usage = $connection->table('ai_user_usages')
+            ->where('user_id', $tenantId)
+            ->first(['user_id', 'total_tokens', 'token_limit']);
 
         if ($usage) {
             return $usage;
         }
-
-        $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
-        $connection->table('ai_user_usages')->insert([
-            'user_id' => $tenantId,
-            'total_tokens' => 0,
-            'token_limit' => $defaultTokenLimit,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
 
         return (object) [
             'user_id' => $tenantId,
@@ -956,13 +974,13 @@ class UnifiedChatService
 
     private function shouldPersistUserMessage(AiConversation $conversation, string $content, string $historyConnection): bool
     {
-        $lastUserMessage = AiMessage::on($historyConnection)
+        $lastUserMessageContent = AiMessage::on($historyConnection)
             ->where('ai_conversation_id', $conversation->id)
             ->where('role', 'user')
             ->orderByDesc('id')
-            ->first();
+            ->value('content');
 
-        return ! $lastUserMessage || trim((string) $lastUserMessage->content) !== $content;
+        return trim((string) $lastUserMessageContent) !== $content;
     }
 
     /**
@@ -1222,5 +1240,134 @@ class UnifiedChatService
                 'type' => 'utility_date_response',
             ],
         ];
+    }
+
+    /**
+     * Keep provider context intentionally small by default.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function buildProviderPayload(array $payload): array
+    {
+        $messages = is_array($payload['messages'] ?? null) ? $payload['messages'] : [];
+        $normalizedMessages = collect($messages)
+            ->filter(fn ($message): bool => is_array($message))
+            ->map(function (array $message): array {
+                return [
+                    'role' => (string) ($message['role'] ?? 'user'),
+                    'content' => trim((string) ($message['content'] ?? '')),
+                ];
+            })
+            ->filter(fn (array $message): bool => $message['content'] !== '')
+            ->values();
+
+        if ($normalizedMessages->isEmpty()) {
+            return $payload;
+        }
+
+        $useFullContext = (bool) ($payload['use_full_context'] ?? false);
+        if ($useFullContext) {
+            $maxMessages = max(2, min((int) config('ai.provider_context_message_limit', 24), 80));
+            $payload['messages'] = $normalizedMessages->slice(-$maxMessages)->values()->all();
+            return $payload;
+        }
+
+        $latestSystem = $normalizedMessages
+            ->reverse()
+            ->first(fn (array $message): bool => $message['role'] === 'system');
+
+        $latestUser = $normalizedMessages
+            ->reverse()
+            ->first(fn (array $message): bool => $message['role'] === 'user');
+
+        $fallbackMessage = $normalizedMessages->last();
+        $focusedMessages = collect([$latestSystem, $latestUser ?? $fallbackMessage])
+            ->filter(fn ($message): bool => is_array($message) && trim((string) ($message['content'] ?? '')) !== '')
+            ->unique(fn (array $message): string => $message['role'].'::'.$message['content'])
+            ->values()
+            ->all();
+
+        $payload['messages'] = $focusedMessages !== [] ? $focusedMessages : [$fallbackMessage];
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerPayload
+     * @param  array<string,mixed>  $originalPayload
+     * @return array<string,mixed>
+     */
+    private function optimizeProviderPayloadForTokenEfficiency(array $providerPayload, array $originalPayload): array
+    {
+        $tokenOptimization = (array) config('ai.token_optimization', []);
+        if (! (bool) ($tokenOptimization['enabled'] ?? true)) {
+            return $providerPayload;
+        }
+
+        $latestUserMessage = $this->extractLatestUserMessage((array) ($originalPayload['messages'] ?? [])) ?? '';
+        $wantsDetailedResponse = $this->wantsDetailedResponse($latestUserMessage);
+
+        $defaultMaxTokens = max(32, (int) ($tokenOptimization['default_max_tokens'] ?? 220));
+        $hardCapMaxTokens = max($defaultMaxTokens, (int) ($tokenOptimization['hard_cap_max_tokens'] ?? 320));
+        $detailedMaxTokens = max($hardCapMaxTokens, (int) ($tokenOptimization['detailed_max_tokens'] ?? 900));
+
+        $effectiveCap = $wantsDetailedResponse ? $detailedMaxTokens : $hardCapMaxTokens;
+        $requestedMaxTokens = (int) ($providerPayload['max_tokens'] ?? 0);
+        if ($requestedMaxTokens > 0) {
+            $providerPayload['max_tokens'] = min($requestedMaxTokens, $effectiveCap);
+        } else {
+            $providerPayload['max_tokens'] = $wantsDetailedResponse ? $hardCapMaxTokens : $defaultMaxTokens;
+        }
+
+        $conciseInstruction = trim((string) ($tokenOptimization['concise_system_instruction'] ?? ''));
+        if ($conciseInstruction === '') {
+            return $providerPayload;
+        }
+
+        $messages = is_array($providerPayload['messages'] ?? null) ? $providerPayload['messages'] : [];
+        if ($messages === []) {
+            return $providerPayload;
+        }
+
+        $firstMessage = $messages[0] ?? null;
+        if (is_array($firstMessage) && ($firstMessage['role'] ?? null) === 'system') {
+            $messages[0]['content'] = trim(((string) ($firstMessage['content'] ?? '')).' '.$conciseInstruction);
+        } else {
+            array_unshift($messages, [
+                'role' => 'system',
+                'content' => $conciseInstruction,
+            ]);
+        }
+
+        $providerPayload['messages'] = $messages;
+
+        return $providerPayload;
+    }
+
+    private function wantsDetailedResponse(string $text): bool
+    {
+        $normalized = strtolower(trim($text));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $detailedCues = [
+            'in detail',
+            'detailed',
+            'step by step',
+            'comprehensive',
+            'explain deeply',
+            'long answer',
+            'full explanation',
+        ];
+
+        foreach ($detailedCues as $cue) {
+            if (str_contains($normalized, $cue)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

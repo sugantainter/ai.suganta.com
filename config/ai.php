@@ -14,6 +14,18 @@ return [
     'models_cache_ttl_seconds' => (int) env('AI_MODELS_CACHE_TTL_SECONDS', 120),
     'buffer_request_logs_to_redis' => (bool) env('AI_BUFFER_REQUEST_LOGS_TO_REDIS', true),
     'request_log_buffer_ttl_seconds' => (int) env('AI_REQUEST_LOG_BUFFER_TTL_SECONDS', 600),
+    'request_log_batch_size' => (int) env('AI_REQUEST_LOG_BATCH_SIZE', 100),
+    'request_log_redis_queue_key' => env('AI_REQUEST_LOG_REDIS_QUEUE_KEY', 'ai:reqlog:queue'),
+    'token_optimization' => [
+        'enabled' => (bool) env('AI_TOKEN_OPTIMIZATION_ENABLED', true),
+        'default_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_DEFAULT_MAX_TOKENS', 220),
+        'hard_cap_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_HARD_CAP_MAX_TOKENS', 320),
+        'detailed_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_DETAILED_MAX_TOKENS', 900),
+        'concise_system_instruction' => env(
+            'AI_TOKEN_OPTIMIZATION_CONCISE_SYSTEM_INSTRUCTION',
+            'Respond with the minimum tokens needed. Keep answers short and direct. Use only essential details.'
+        ),
+    ],
     'circuit_breaker_failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3),
     'circuit_breaker_cooldown_seconds' => (int) env('AI_CIRCUIT_BREAKER_COOLDOWN_SECONDS', 45),
     'circuit_breaker_failure_window_seconds' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_WINDOW_SECONDS', 60),
