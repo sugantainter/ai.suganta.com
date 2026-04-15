@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\AI\Exceptions\TokenLimitExceededException;
 use App\AI\Exceptions\TooManyConcurrentRequestsException;
+use App\AI\Exceptions\ProviderRequestException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChatRequest;
 use App\Jobs\ProcessAsyncChatJob;
@@ -56,6 +57,22 @@ class ChatController extends Controller
                 'message' => $exception->getMessage(),
                 'code' => 'chat_concurrency_limited',
             ], 429);
+        } catch (ProviderRequestException $exception) {
+            Log::warning('Chat provider returned request error.', [
+                'tenant_id' => $tenantId,
+                'api_key_id' => $apiKeyId,
+                'model' => $payload['model'] ?? null,
+                'provider' => $payload['provider'] ?? null,
+                'provider_name' => $exception->provider,
+                'provider_status' => $exception->statusCode,
+                'error' => $exception->getMessage(),
+            ]);
+            return response()->json([
+                'message' => $exception->clientMessage(),
+                'code' => $exception->errorCode(),
+                'provider' => $exception->provider,
+                'provider_status' => $exception->statusCode,
+            ], in_array($exception->statusCode, [400, 401, 402, 403, 404, 429], true) ? $exception->statusCode : 422);
         } catch (ConnectionException $exception) {
             Log::warning('Chat provider connection/timeout failure.', [
                 'tenant_id' => $tenantId,
@@ -66,10 +83,13 @@ class ChatController extends Controller
                 'error' => $exception->getMessage(),
                 'exception' => $exception::class,
             ]);
+            $async = $this->enqueueAsyncChat($tenantId, $apiKeyId, $payload);
             return response()->json([
-                'message' => 'AI provider is taking too long or unavailable. Please try again.',
-                'code' => 'chat_provider_timeout',
-            ], 504);
+                'message' => 'Provider is busy. Request moved to async processing.',
+                'code' => 'chat_async_queued',
+                'job_id' => $async['job_id'],
+                'status' => $async['status'],
+            ], 202);
         } catch (\Throwable $exception) {
             Log::error('Chat request failed.', [
                 'tenant_id' => $tenantId,
@@ -120,26 +140,12 @@ class ChatController extends Controller
 
         $tenantId = (int) $request->attributes->get('tenant_id');
         $apiKeyId = $request->attributes->get('api_key_id');
-        $jobId = (string) Str::uuid();
-        $cacheKey = $this->chatJobCacheKey($jobId);
-
-        Cache::put($cacheKey, [
-            'job_id' => $jobId,
-            'status' => 'queued',
-            'updated_at' => now()->toIso8601String(),
-        ], now()->addMinutes(30));
-
-        ProcessAsyncChatJob::dispatch($jobId, $tenantId, $apiKeyId, $payload)
-            ->onQueue('ai-chat');
-
-        return response()->json([
-            'job_id' => $jobId,
-            'status' => 'queued',
-        ], 202);
+        return response()->json($this->enqueueAsyncChat($tenantId, $apiKeyId, $payload), 202);
     }
 
-    public function chatJobStatus(string $jobId): JsonResponse
+    public function chatJobStatus(string $jobId, Request $request): JsonResponse
     {
+        $tenantId = (int) $request->attributes->get('tenant_id');
         $jobStatus = Cache::get($this->chatJobCacheKey($jobId));
         if (! is_array($jobStatus)) {
             return response()->json([
@@ -147,6 +153,16 @@ class ChatController extends Controller
             ], 404);
         }
 
+        if ((int) ($jobStatus['tenant_id'] ?? 0) !== $tenantId) {
+            return response()->json([
+                'message' => 'Job not found.',
+            ], 404);
+        }
+
+        $status = (string) ($jobStatus['status'] ?? 'queued');
+        $pollAfterMs = $status === 'queued' ? 1400 : 900;
+
+        $jobStatus['poll_after_ms'] = $pollAfterMs;
         return response()->json($jobStatus);
     }
 
@@ -319,16 +335,45 @@ class ChatController extends Controller
         ]);
     }
 
-    public function models(): JsonResponse
+    public function models(Request $request): JsonResponse
     {
+        $tenantId = (int) $request->attributes->get('tenant_id');
+
         return response()->json([
-            'models' => $this->chatService->listModels(),
+            'models' => $this->chatService->listAvailableModelsForTenant($tenantId),
         ]);
     }
 
     private function chatJobCacheKey(string $jobId): string
     {
         return "ai:async-chat:job:{$jobId}";
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array{job_id: string, status: string, tenant_id: int}
+     */
+    private function enqueueAsyncChat(int $tenantId, ?int $apiKeyId, array $payload): array
+    {
+        $jobId = (string) Str::uuid();
+        $cacheKey = $this->chatJobCacheKey($jobId);
+
+        Cache::put($cacheKey, [
+            'job_id' => $jobId,
+            'tenant_id' => $tenantId,
+            'status' => 'queued',
+            'queued_at' => now()->toIso8601String(),
+            'updated_at' => now()->toIso8601String(),
+        ], now()->addMinutes(30));
+
+        ProcessAsyncChatJob::dispatch($jobId, $tenantId, $apiKeyId, $payload)
+            ->onQueue('ai-chat');
+
+        return [
+            'job_id' => $jobId,
+            'status' => 'queued',
+            'tenant_id' => $tenantId,
+        ];
     }
 
 }

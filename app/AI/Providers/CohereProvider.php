@@ -3,6 +3,7 @@
 namespace App\AI\Providers;
 
 use App\AI\Contracts\ChatProviderInterface;
+use App\AI\Exceptions\ProviderRequestException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -42,7 +43,11 @@ class CohereProvider implements ChatProviderInterface
             ]);
 
         if (! $response->successful()) {
-            throw new ConnectionException("Cohere request failed with status {$response->status()}.");
+            $upstreamMessage = trim((string) data_get((array) $response->json(), 'message', ''));
+            $message = $upstreamMessage !== ''
+                ? "Cohere request failed with status {$response->status()}: {$upstreamMessage}"
+                : "Cohere request failed with status {$response->status()}.";
+            throw new ProviderRequestException('cohere', $response->status(), $message);
         }
 
         $json = (array) $response->json();

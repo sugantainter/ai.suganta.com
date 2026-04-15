@@ -40,6 +40,13 @@ class UnifiedChatService
 
             $conversation = $this->resolveConversation($tenantId, $payload);
             $payload = $this->normalizePayloadAttachments($payload, $tenantId, (int) $conversation->id);
+            $utilityResponse = $this->buildUtilityResponse($payload);
+            if ($utilityResponse !== null) {
+                $this->logRequest($tenantId, $apiKeyId, 'system', $payload, $utilityResponse, 0, null);
+                $this->persistConversationHistory($conversation, $payload, $utilityResponse, 'system');
+                $utilityResponse['conversation_id'] = $conversation->id;
+                return $utilityResponse;
+            }
             $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
             $fallbacks = $payload['fallback_providers'] ?? config('ai.fallback_providers', []);
             $resolvedModelProvider = $this->resolveProviderForModel((string) ($payload['model'] ?? ''));
@@ -485,6 +492,35 @@ class UnifiedChatService
                 'metadata' => $model->metadata ?? [],
             ])->values()->all();
         });
+    }
+
+    /**
+     * Return only models that this tenant can currently access.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function listAvailableModelsForTenant(int $tenantId): array
+    {
+        $activeCustomProviderKeys = $this->getActiveCustomProviderKeys($tenantId);
+        $allModels = $this->listModels();
+
+        $isProviderAvailable = function (string $provider) use ($activeCustomProviderKeys): bool {
+            $customKey = $activeCustomProviderKeys[$provider] ?? null;
+            if (is_string($customKey) && trim($customKey) !== '') {
+                return true;
+            }
+
+            $systemKey = (string) config("ai.providers.{$provider}.api_key", '');
+            return trim($systemKey) !== '';
+        };
+
+        return array_values(array_filter($allModels, function (array $model) use ($isProviderAvailable): bool {
+            $provider = (string) ($model['provider'] ?? '');
+            if ($provider === '') {
+                return false;
+            }
+            return $isProviderAvailable($provider);
+        }));
     }
 
     /**
@@ -1095,5 +1131,50 @@ class UnifiedChatService
         $payload['messages'] = $messages;
 
         return $payload;
+    }
+
+    /**
+     * Return a deterministic server-side answer for simple utility queries.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function buildUtilityResponse(array $payload): ?array
+    {
+        $latestUserMessage = $this->extractLatestUserMessage(is_array($payload['messages'] ?? null) ? $payload['messages'] : []);
+        if ($latestUserMessage === null) {
+            return null;
+        }
+
+        $normalized = strtolower(trim(preg_replace('/\s+/', ' ', $latestUserMessage) ?? ''));
+        $dateQueryPatterns = [
+            'today date',
+            "today's date",
+            'todays date',
+            'date today',
+            'current date',
+            'what is today date',
+            "what is today's date",
+            'what is the date today',
+        ];
+
+        if (! in_array($normalized, $dateQueryPatterns, true)) {
+            return null;
+        }
+
+        $tz = (string) config('app.timezone', 'UTC');
+        return [
+            'provider' => 'system',
+            'model' => 'server-utility',
+            'content' => now()->timezone($tz)->format('l, F j, Y'),
+            'usage' => [
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'total_tokens' => 0,
+            ],
+            'raw' => [
+                'type' => 'utility_date_response',
+            ],
+        ];
     }
 }

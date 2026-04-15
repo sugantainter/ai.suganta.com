@@ -409,6 +409,7 @@ const SpeechRecognitionCtor = typeof window !== 'undefined'
 const speechSupported = Boolean(SpeechRecognitionCtor);
 const listening = ref(false);
 let recognition = null;
+let chatPollCancelled = false;
 const isSharedView = computed(() => route.name === 'chat.shared');
 const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
 
@@ -544,15 +545,42 @@ function formatMessageContent(content) {
 }
 
 async function apiRequest(path, options = {}) {
-    const response = await fetch(path, {
-        credentials: 'include',
-        ...options,
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            ...(options.headers ?? {}),
-        },
-    });
+    const timeoutMs = Number(options.timeoutMs ?? 0);
+    const hasCustomSignal = Boolean(options.signal);
+    const controller = !hasCustomSignal && timeoutMs > 0 ? new AbortController() : null;
+    const timeoutId = controller
+        ? setTimeout(() => {
+            controller.abort();
+        }, timeoutMs)
+        : null;
+
+    let response;
+    try {
+        response = await fetch(path, {
+            credentials: 'include',
+            ...options,
+            signal: options.signal ?? controller?.signal,
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                ...(options.headers ?? {}),
+            },
+        });
+    } catch (cause) {
+        const aborted = controller?.signal?.aborted || String(cause?.name || '').toLowerCase() === 'aborterror';
+        const error = new Error(
+            aborted
+                ? 'Request timed out. Switching to background processing...'
+                : (String(cause?.message || '') || 'Network request failed.')
+        );
+        error.code = aborted ? 'request_timeout' : 'network_error';
+        error.status = 0;
+        throw error;
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    }
 
     const data = await parseApiResponse(response);
     if (!response.ok) {
@@ -568,8 +596,12 @@ async function apiRequest(path, options = {}) {
 function shouldFallbackToAsync(error) {
     const code = String(error?.code || '').toLowerCase();
     const status = Number(error?.status || 0);
+    if (code.startsWith('provider_')) {
+        return false;
+    }
     return code === 'chat_concurrency_limited'
         || code === 'chat_provider_timeout'
+        || code === 'request_timeout'
         || status === 429
         || status === 504;
 }
@@ -583,9 +615,27 @@ function sleep(ms) {
 async function pollAsyncChatJob(jobId, timeoutMs = 60000) {
     const startedAt = Date.now();
     let waitMs = 800;
+    let transientFailureCount = 0;
 
     while (Date.now() - startedAt < timeoutMs) {
-        const data = await apiRequest(`/api/v1/chat/jobs/${encodeURIComponent(jobId)}`);
+        if (chatPollCancelled) {
+            throw new Error('Request cancelled.');
+        }
+
+        let data;
+        try {
+            data = await apiRequest(`/api/v1/chat/jobs/${encodeURIComponent(jobId)}`, { timeoutMs: 8000 });
+            transientFailureCount = 0;
+        } catch (error) {
+            transientFailureCount += 1;
+            if (transientFailureCount >= 4) {
+                throw error;
+            }
+            await sleep(waitMs);
+            waitMs = Math.min(3500, waitMs + 600);
+            continue;
+        }
+
         const status = String(data?.status || '').toLowerCase();
         if (status === 'completed') {
             return data?.result ?? {};
@@ -594,8 +644,18 @@ async function pollAsyncChatJob(jobId, timeoutMs = 60000) {
             throw new Error(String(data?.error || 'Async chat processing failed.'));
         }
 
+        if (status === 'queued') {
+            statusText.value = 'Queued... preparing your response';
+        } else if (status === 'processing') {
+            statusText.value = 'Generating response...';
+        }
+
+        const suggestedWait = Number(data?.poll_after_ms || 0);
+        if (Number.isFinite(suggestedWait) && suggestedWait >= 300 && suggestedWait <= 5000) {
+            waitMs = suggestedWait;
+        }
         await sleep(waitMs);
-        waitMs = Math.min(2500, waitMs + 300);
+        waitMs = Math.min(3000, waitMs + 250);
     }
 
     throw new Error('Async response is taking too long. Please try again.');
@@ -607,6 +667,7 @@ async function sendChatAsAsync(payload) {
     const started = await apiRequest('/api/v1/chat/async', {
         method: 'POST',
         body: JSON.stringify(payload),
+        timeoutMs: 10000,
     });
     const jobId = String(started?.job_id || '');
     if (!jobId) {
@@ -901,7 +962,13 @@ async function sendMessage() {
             data = await apiRequest('/api/v1/chat', {
                 method: 'POST',
                 body: JSON.stringify(payload),
+                timeoutMs: 8000,
             });
+            if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
+                asyncModeActive.value = true;
+                statusText.value = 'Generating response...';
+                data = await pollAsyncChatJob(String(data.job_id));
+            }
         } catch (error) {
             if (!shouldFallbackToAsync(error)) {
                 throw error;
@@ -1308,6 +1375,7 @@ watch(searchQuery, (value) => {
 });
 
 onBeforeUnmount(() => {
+    chatPollCancelled = true;
     if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer);
     }

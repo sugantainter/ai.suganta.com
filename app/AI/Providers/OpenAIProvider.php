@@ -3,6 +3,7 @@
 namespace App\AI\Providers;
 
 use App\AI\Contracts\ChatProviderInterface;
+use App\AI\Exceptions\ProviderRequestException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -34,7 +35,11 @@ class OpenAIProvider implements ChatProviderInterface
             ]);
 
         if (! $response->successful()) {
-            throw new ConnectionException(ucfirst($providerKey)." request failed with status {$response->status()}.");
+            $upstreamMessage = trim((string) data_get((array) $response->json(), 'error.message', ''));
+            $message = $upstreamMessage !== ''
+                ? ucfirst($providerKey)." request failed with status {$response->status()}: {$upstreamMessage}"
+                : ucfirst($providerKey)." request failed with status {$response->status()}.";
+            throw new ProviderRequestException($providerKey, $response->status(), $message);
         }
 
         $json = (array) $response->json();

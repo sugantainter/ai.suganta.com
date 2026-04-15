@@ -3,6 +3,7 @@
 namespace App\AI\Providers;
 
 use App\AI\Contracts\ChatProviderInterface;
+use App\AI\Exceptions\ProviderRequestException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -40,7 +41,11 @@ class GeminiProvider implements ChatProviderInterface
             );
 
         if (! $response->successful()) {
-            throw new ConnectionException("Gemini request failed with status {$response->status()}.");
+            $upstreamMessage = trim((string) data_get((array) $response->json(), 'error.message', ''));
+            $message = $upstreamMessage !== ''
+                ? "Gemini request failed with status {$response->status()}: {$upstreamMessage}"
+                : "Gemini request failed with status {$response->status()}.";
+            throw new ProviderRequestException('gemini', $response->status(), $message);
         }
 
         $json = (array) $response->json();

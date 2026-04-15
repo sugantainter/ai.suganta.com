@@ -3,6 +3,7 @@
 namespace App\AI\Providers;
 
 use App\AI\Contracts\ChatProviderInterface;
+use App\AI\Exceptions\ProviderRequestException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -47,7 +48,11 @@ class AnthropicProvider implements ChatProviderInterface
             ]);
 
         if (! $response->successful()) {
-            throw new ConnectionException("Anthropic request failed with status {$response->status()}.");
+            $upstreamMessage = trim((string) data_get((array) $response->json(), 'error.message', ''));
+            $message = $upstreamMessage !== ''
+                ? "Anthropic request failed with status {$response->status()}: {$upstreamMessage}"
+                : "Anthropic request failed with status {$response->status()}.";
+            throw new ProviderRequestException('anthropic', $response->status(), $message);
         }
 
         $json = (array) $response->json();
