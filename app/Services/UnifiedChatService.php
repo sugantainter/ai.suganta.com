@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\AI\Exceptions\TokenLimitExceededException;
+use App\AI\Exceptions\TooManyConcurrentRequestsException;
 use App\AI\ProviderRegistry;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
@@ -11,6 +12,7 @@ use App\Models\AiUploadAsset;
 use App\Models\ProviderCredential;
 use App\Models\RequestLog;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -28,64 +30,97 @@ class UnifiedChatService
      */
     public function handle(int $tenantId, ?int $apiKeyId, array $payload): array
     {
-        $payload = $this->ensureProviderFromModel($payload);
-        $usageState = $this->getOrCreateUsageState($tenantId);
-        $activeCustomProviderKeys = $this->getActiveCustomProviderKeys($tenantId);
+        $counterKeys = $this->acquireConcurrencySlots($tenantId);
 
-        $conversation = $this->resolveConversation($tenantId, $payload);
-        $payload = $this->normalizePayloadAttachments($payload, $tenantId, (int) $conversation->id);
-        $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
-        $fallbacks = $payload['fallback_providers'] ?? config('ai.fallback_providers', []);
-        $providerOrder = collect(array_merge([$preferred], $fallbacks))
-            ->map(fn ($provider) => (string) $provider)
-            ->unique()
-            ->values();
+        try {
+            $payload = $this->ensureProviderFromModel($payload);
+            $usageState = $this->getOrCreateUsageState($tenantId);
+            $activeCustomProviderKeys = $this->getActiveCustomProviderKeys($tenantId);
+            $deadlineAt = microtime(true) + max(5, (int) config('ai.max_request_duration_seconds', 20));
 
-        $lastException = null;
-        foreach ($providerOrder as $providerKey) {
-            $providerAccess = $this->resolveProviderAccess($providerKey, $activeCustomProviderKeys);
-            $usingCustomProviderKey = (bool) ($providerAccess['using_custom_provider_key'] ?? false);
-            $providerApiKey = $providerAccess['provider_api_key'] ?? null;
-            if (! $providerApiKey) {
-                continue;
+            $conversation = $this->resolveConversation($tenantId, $payload);
+            $payload = $this->normalizePayloadAttachments($payload, $tenantId, (int) $conversation->id);
+            $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
+            $fallbacks = $payload['fallback_providers'] ?? config('ai.fallback_providers', []);
+            $resolvedModelProvider = $this->resolveProviderForModel((string) ($payload['model'] ?? ''));
+            if ($resolvedModelProvider !== null) {
+                // When model is known, lock routing to its owning provider to prevent
+                // cross-provider mismatches (e.g. Grok model sent to DeepSeek fallback).
+                $preferred = $resolvedModelProvider;
+                $fallbacks = [];
+                $payload['provider'] = $resolvedModelProvider;
             }
+            $providerOrder = collect(array_merge([$preferred], $fallbacks))
+                ->map(fn ($provider) => (string) $provider)
+                ->unique()
+                ->values();
 
-            $providerPayload = $payload;
-            if (! $usingCustomProviderKey) {
-                $this->assertUserWithinTokenLimit($usageState);
-            }
-
-            $start = microtime(true);
-            try {
-                $response = $this->providers->get($providerKey)->chat($providerPayload, $providerApiKey);
-                $latencyMs = (int) round((microtime(true) - $start) * 1000);
-                $usage = (array) ($response['usage'] ?? []);
-
-                if (! $usingCustomProviderKey) {
-                    $consumedTokens = (int) ($usage['total_tokens'] ?? 0);
-                    $this->storeUsage($tenantId, $consumedTokens);
-                    $usageState->total_tokens = (int) ($usageState->total_tokens ?? 0) + $consumedTokens;
+            $lastException = null;
+            $attemptErrors = [];
+            foreach ($providerOrder as $providerKey) {
+                if (microtime(true) >= $deadlineAt) {
+                    $attemptErrors[] = 'request deadline exceeded';
+                    break;
                 }
 
-                $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, $response, $latencyMs, null);
-                $this->persistConversationHistory($conversation, $providerPayload, $response, $providerKey);
-                $response['conversation_id'] = $conversation->id;
+                if ($this->isProviderCircuitOpen($providerKey)) {
+                    $attemptErrors[] = "{$providerKey}: circuit breaker open";
+                    continue;
+                }
 
-                return $response;
-            } catch (\Throwable $exception) {
-                $lastException = $exception;
-                $latencyMs = (int) round((microtime(true) - $start) * 1000);
-                $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, [], $latencyMs, $exception->getMessage());
-                $conversation->forceFill([
-                    'status' => 'error',
-                    'last_error_code' => 'provider_error',
-                    'last_error_message' => $exception->getMessage(),
-                    'last_used_at' => now(),
-                ])->save();
+                $providerAccess = $this->resolveProviderAccess($providerKey, $activeCustomProviderKeys);
+                $usingCustomProviderKey = (bool) ($providerAccess['using_custom_provider_key'] ?? false);
+                $providerApiKey = $providerAccess['provider_api_key'] ?? null;
+                if (! $providerApiKey) {
+                    $attemptErrors[] = "{$providerKey}: missing provider API key";
+                    continue;
+                }
+
+                $providerPayload = $payload;
+                if (! $usingCustomProviderKey) {
+                    $this->assertUserWithinTokenLimit($usageState);
+                }
+
+                $start = microtime(true);
+                try {
+                    $response = $this->providers->get($providerKey)->chat($providerPayload, $providerApiKey);
+                    $latencyMs = (int) round((microtime(true) - $start) * 1000);
+                    $usage = (array) ($response['usage'] ?? []);
+
+                    if (! $usingCustomProviderKey) {
+                        $consumedTokens = (int) ($usage['total_tokens'] ?? 0);
+                        $this->storeUsage($tenantId, $consumedTokens);
+                        $usageState->total_tokens = (int) ($usageState->total_tokens ?? 0) + $consumedTokens;
+                    }
+
+                    $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, $response, $latencyMs, null);
+                    $this->resetProviderCircuit($providerKey);
+                    $this->persistConversationHistory($conversation, $providerPayload, $response, $providerKey);
+                    $response['conversation_id'] = $conversation->id;
+
+                    return $response;
+                } catch (\Throwable $exception) {
+                    $this->recordProviderFailure($providerKey);
+                    $lastException = $exception;
+                    $attemptErrors[] = "{$providerKey}: ".$exception->getMessage();
+                    $latencyMs = (int) round((microtime(true) - $start) * 1000);
+                    $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, [], $latencyMs, $exception->getMessage());
+                    $conversation->forceFill([
+                        'status' => 'error',
+                        'last_error_code' => 'provider_error',
+                        'last_error_message' => $exception->getMessage(),
+                        'last_used_at' => now(),
+                    ])->save();
+                }
             }
-        }
 
-        throw new ConnectionException($lastException?->getMessage() ?? 'No provider succeeded.');
+            $summary = $attemptErrors !== []
+                ? ' Attempts: '.implode(' | ', $attemptErrors)
+                : '';
+            throw new ConnectionException('No provider succeeded for this model.'.$summary, previous: $lastException);
+        } finally {
+            $this->releaseConcurrencySlots($counterKeys);
+        }
     }
 
     /**
@@ -424,27 +459,32 @@ class UnifiedChatService
      */
     public function listModels(): array
     {
-        $models = AiModel::query()
-            ->where('is_active', true)
-            ->orderBy('provider')
-            ->orderBy('display_name')
-            ->get();
+        $cacheKey = 'ai:models:list:v1';
+        $ttlSeconds = max(10, (int) config('ai.models_cache_ttl_seconds', 120));
 
-        return $models->map(fn (AiModel $model) => [
-            'id' => $model->id,
-            'provider' => $model->provider,
-            'model' => $model->model_key,
-            'display_name' => $model->display_name,
-            'description' => $model->description,
-            'max_output_tokens' => $model->max_output_tokens,
-            'supports_streaming' => $model->supports_streaming,
-            'supports_vision' => $model->supports_vision,
-            'supports_reasoning' => $model->supports_reasoning,
-            'supports_web_search' => $model->supports_web_search,
-            'supports_tools' => $model->supports_tools,
-            'is_default' => $model->is_default,
-            'metadata' => $model->metadata ?? [],
-        ])->values()->all();
+        return Cache::remember($cacheKey, now()->addSeconds($ttlSeconds), function (): array {
+            $models = AiModel::query()
+                ->where('is_active', true)
+                ->orderBy('provider')
+                ->orderBy('display_name')
+                ->get();
+
+            return $models->map(fn (AiModel $model) => [
+                'id' => $model->id,
+                'provider' => $model->provider,
+                'model' => $model->model_key,
+                'display_name' => $model->display_name,
+                'description' => $model->description,
+                'max_output_tokens' => $model->max_output_tokens,
+                'supports_streaming' => $model->supports_streaming,
+                'supports_vision' => $model->supports_vision,
+                'supports_reasoning' => $model->supports_reasoning,
+                'supports_web_search' => $model->supports_web_search,
+                'supports_tools' => $model->supports_tools,
+                'is_default' => $model->is_default,
+                'metadata' => $model->metadata ?? [],
+            ])->values()->all();
+        });
     }
 
     /**
@@ -487,6 +527,8 @@ class UnifiedChatService
             ]
         );
 
+        $this->forgetProviderKeyCache($tenantId);
+
         return [
             'provider' => $credential->provider,
             'has_custom_key' => true,
@@ -496,10 +538,16 @@ class UnifiedChatService
 
     public function removeProviderCredential(int $tenantId, string $provider): bool
     {
-        return ProviderCredential::query()
+        $removed = ProviderCredential::query()
             ->where('tenant_id', $tenantId)
             ->where('provider', $provider)
             ->delete() > 0;
+
+        if ($removed) {
+            $this->forgetProviderKeyCache($tenantId);
+        }
+
+        return $removed;
     }
 
     /**
@@ -607,15 +655,20 @@ class UnifiedChatService
      */
     private function getActiveCustomProviderKeys(int $tenantId): array
     {
-        return ProviderCredential::query()
-            ->where('tenant_id', $tenantId)
-            ->where('is_active', true)
-            ->get(['provider', 'encrypted_api_key'])
-            ->filter(fn (ProviderCredential $credential): bool => is_string($credential->encrypted_api_key) && $credential->encrypted_api_key !== '')
-            ->mapWithKeys(fn (ProviderCredential $credential): array => [
-                (string) $credential->provider => (string) $credential->encrypted_api_key,
-            ])
-            ->all();
+        $cacheKey = $this->providerKeyCacheKey($tenantId);
+        $ttlSeconds = max(5, (int) config('ai.provider_keys_cache_ttl_seconds', 30));
+
+        return Cache::remember($cacheKey, now()->addSeconds($ttlSeconds), function () use ($tenantId): array {
+            return ProviderCredential::query()
+                ->where('tenant_id', $tenantId)
+                ->where('is_active', true)
+                ->get(['provider', 'encrypted_api_key'])
+                ->filter(fn (ProviderCredential $credential): bool => is_string($credential->encrypted_api_key) && $credential->encrypted_api_key !== '')
+                ->mapWithKeys(fn (ProviderCredential $credential): array => [
+                    (string) $credential->provider => (string) $credential->encrypted_api_key,
+                ])
+                ->all();
+        });
     }
 
     /**
@@ -836,21 +889,139 @@ class UnifiedChatService
      */
     private function ensureProviderFromModel(array $payload): array
     {
+        $modelProvider = $this->resolveProviderForModel((string) ($payload['model'] ?? ''));
+        if ($modelProvider !== null) {
+            $payload['provider'] = $modelProvider;
+            return $payload;
+        }
+
         if (! empty($payload['provider'])) {
             return $payload;
         }
 
-        $modelKey = (string) ($payload['model'] ?? config('ai.default_model'));
+        $payload['provider'] = (string) config('ai.default_provider');
+
+        return $payload;
+    }
+
+    private function resolveProviderForModel(string $modelKey): ?string
+    {
+        $normalizedModel = trim($modelKey);
+        if ($normalizedModel === '') {
+            return null;
+        }
+
         $provider = AiModel::query()
-            ->where('model_key', $modelKey)
+            ->where('model_key', $normalizedModel)
             ->where('is_active', true)
             ->value('provider');
 
-        $payload['provider'] = is_string($provider) && $provider !== ''
-            ? $provider
-            : (string) config('ai.default_provider');
+        if (! is_string($provider) || $provider === '') {
+            return null;
+        }
 
-        return $payload;
+        return $provider;
+    }
+
+    /**
+     * @return array{global_key: string, tenant_key: string}
+     */
+    private function acquireConcurrencySlots(int $tenantId): array
+    {
+        $globalKey = 'ai:inflight:global';
+        $tenantKey = "ai:inflight:tenant:{$tenantId}";
+        $ttl = now()->addSeconds(max(5, (int) config('ai.max_request_duration_seconds', 20) + 20));
+
+        $globalCount = Cache::increment($globalKey);
+        Cache::put($globalKey, $globalCount, $ttl);
+
+        $tenantCount = Cache::increment($tenantKey);
+        Cache::put($tenantKey, $tenantCount, $ttl);
+
+        $maxGlobal = max(100, (int) config('ai.max_in_flight_requests_global', 1200));
+        $maxTenant = max(1, (int) config('ai.max_in_flight_requests_per_tenant', 12));
+
+        if ($globalCount > $maxGlobal || $tenantCount > $maxTenant) {
+            $this->releaseConcurrencySlots([
+                'global_key' => $globalKey,
+                'tenant_key' => $tenantKey,
+            ]);
+            throw new TooManyConcurrentRequestsException();
+        }
+
+        return [
+            'global_key' => $globalKey,
+            'tenant_key' => $tenantKey,
+        ];
+    }
+
+    /**
+     * @param  array{global_key: string, tenant_key: string}  $keys
+     */
+    private function releaseConcurrencySlots(array $keys): void
+    {
+        $globalKey = (string) ($keys['global_key'] ?? '');
+        $tenantKey = (string) ($keys['tenant_key'] ?? '');
+        if ($globalKey !== '') {
+            $nextGlobal = max(0, (int) Cache::decrement($globalKey));
+            if ($nextGlobal === 0) {
+                Cache::forget($globalKey);
+            }
+        }
+        if ($tenantKey !== '') {
+            $nextTenant = max(0, (int) Cache::decrement($tenantKey));
+            if ($nextTenant === 0) {
+                Cache::forget($tenantKey);
+            }
+        }
+    }
+
+    private function providerKeyCacheKey(int $tenantId): string
+    {
+        return "ai:provider-keys:tenant:{$tenantId}";
+    }
+
+    private function forgetProviderKeyCache(int $tenantId): void
+    {
+        Cache::forget($this->providerKeyCacheKey($tenantId));
+    }
+
+    private function providerCircuitOpenKey(string $provider): string
+    {
+        return "ai:circuit:{$provider}:open_until";
+    }
+
+    private function providerCircuitFailuresKey(string $provider): string
+    {
+        return "ai:circuit:{$provider}:failures";
+    }
+
+    private function isProviderCircuitOpen(string $provider): bool
+    {
+        $openUntil = (int) Cache::get($this->providerCircuitOpenKey($provider), 0);
+        return $openUntil > time();
+    }
+
+    private function recordProviderFailure(string $provider): void
+    {
+        $failureThreshold = max(2, (int) config('ai.circuit_breaker_failure_threshold', 3));
+        $cooldownSeconds = max(10, (int) config('ai.circuit_breaker_cooldown_seconds', 45));
+        $windowSeconds = max(15, (int) config('ai.circuit_breaker_failure_window_seconds', 60));
+
+        $failuresKey = $this->providerCircuitFailuresKey($provider);
+        $failures = Cache::increment($failuresKey);
+        Cache::put($failuresKey, $failures, now()->addSeconds($windowSeconds));
+
+        if ($failures >= $failureThreshold) {
+            Cache::put($this->providerCircuitOpenKey($provider), time() + $cooldownSeconds, now()->addSeconds($cooldownSeconds));
+            Cache::forget($failuresKey);
+        }
+    }
+
+    private function resetProviderCircuit(string $provider): void
+    {
+        Cache::forget($this->providerCircuitOpenKey($provider));
+        Cache::forget($this->providerCircuitFailuresKey($provider));
     }
 
     /**

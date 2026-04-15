@@ -218,6 +218,19 @@
                         >
                             {{ chatErrorMessage }}
                         </div>
+                        <div
+                            v-else-if="sending"
+                            class="mb-3 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-300"
+                        >
+                            <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
+                            <span>Generating response...</span>
+                            <span
+                                v-if="asyncModeActive"
+                                class="ml-1 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300"
+                            >
+                                Async mode
+                            </span>
+                        </div>
                         <div class="rounded-[1.6rem] border border-zinc-700 bg-zinc-900 px-3 py-3 sm:rounded-full sm:py-2">
                             <div v-if="attachments.length && !isSharedView" class="mb-3 flex flex-wrap gap-2">
                                 <div
@@ -376,6 +389,7 @@ const sending = ref(false);
 const statusText = ref('Ready');
 const modelErrorMessage = ref('');
 const chatErrorMessage = ref('');
+const asyncModeActive = ref(false);
 const conversationAssets = ref([]);
 const assetsLoading = ref(false);
 const assetActionLoadingId = ref(null);
@@ -542,10 +556,65 @@ async function apiRequest(path, options = {}) {
 
     const data = await parseApiResponse(response);
     if (!response.ok) {
-        throw new Error(data?.message || `Request failed: ${response.status}`);
+        const error = new Error(data?.message || `Request failed: ${response.status}`);
+        error.code = String(data?.code || '');
+        error.status = Number(response.status || 0);
+        throw error;
     }
 
     return data;
+}
+
+function shouldFallbackToAsync(error) {
+    const code = String(error?.code || '').toLowerCase();
+    const status = Number(error?.status || 0);
+    return code === 'chat_concurrency_limited'
+        || code === 'chat_provider_timeout'
+        || status === 429
+        || status === 504;
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+async function pollAsyncChatJob(jobId, timeoutMs = 60000) {
+    const startedAt = Date.now();
+    let waitMs = 800;
+
+    while (Date.now() - startedAt < timeoutMs) {
+        const data = await apiRequest(`/api/v1/chat/jobs/${encodeURIComponent(jobId)}`);
+        const status = String(data?.status || '').toLowerCase();
+        if (status === 'completed') {
+            return data?.result ?? {};
+        }
+        if (status === 'failed') {
+            throw new Error(String(data?.error || 'Async chat processing failed.'));
+        }
+
+        await sleep(waitMs);
+        waitMs = Math.min(2500, waitMs + 300);
+    }
+
+    throw new Error('Async response is taking too long. Please try again.');
+}
+
+async function sendChatAsAsync(payload) {
+    asyncModeActive.value = true;
+    statusText.value = 'Server busy. Switching to async mode...';
+    const started = await apiRequest('/api/v1/chat/async', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    const jobId = String(started?.job_id || '');
+    if (!jobId) {
+        throw new Error('Unable to create async chat job.');
+    }
+
+    statusText.value = 'Generating response...';
+    return await pollAsyncChatJob(jobId);
 }
 
 function parseConversationId(value) {
@@ -805,31 +874,40 @@ async function sendMessage() {
     inputMessage.value = '';
     attachments.value = [];
     sending.value = true;
+    asyncModeActive.value = false;
     chatErrorMessage.value = '';
     statusText.value = 'Sending...';
     await scrollMessagesToBottom();
 
-    try {
-        const payload = {
-            model: model.value,
-            conversation_id: currentConversationId.value ?? undefined,
-            save_history: true,
-            stream: false,
-            temperature: Number(temperature.value),
-            messages: nextMessages,
-            attachments: currentAttachments.map((item) => ({
-                name: String(item.name || 'attachment'),
-                type: item.type?.startsWith('image/') ? 'image' : (item.textContent ? 'text' : 'file'),
-                mime_type: String(item.type || 'application/octet-stream'),
-                content_text: item.textContent ? String(item.textContent) : undefined,
-                content_base64: item.dataUrl ? String(item.dataUrl) : undefined,
-            })),
-        };
+    const payload = {
+        model: model.value,
+        conversation_id: currentConversationId.value ?? undefined,
+        save_history: true,
+        stream: false,
+        temperature: Number(temperature.value),
+        messages: nextMessages,
+        attachments: currentAttachments.map((item) => ({
+            name: String(item.name || 'attachment'),
+            type: item.type?.startsWith('image/') ? 'image' : (item.textContent ? 'text' : 'file'),
+            mime_type: String(item.type || 'application/octet-stream'),
+            content_text: item.textContent ? String(item.textContent) : undefined,
+            content_base64: item.dataUrl ? String(item.dataUrl) : undefined,
+        })),
+    };
 
-        const data = await apiRequest('/api/v1/chat', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
+    try {
+        let data;
+        try {
+            data = await apiRequest('/api/v1/chat', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+        } catch (error) {
+            if (!shouldFallbackToAsync(error)) {
+                throw error;
+            }
+            data = await sendChatAsAsync(payload);
+        }
 
         if (data.conversation_id) {
             currentConversationId.value = data.conversation_id;
@@ -856,6 +934,7 @@ async function sendMessage() {
         statusText.value = error.message || 'Failed to send message';
         showErrorAlert(chatErrorMessage.value, 'Chat request failed');
     } finally {
+        asyncModeActive.value = false;
         sending.value = false;
     }
 }

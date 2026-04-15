@@ -30,7 +30,9 @@ class AnthropicProvider implements ChatProviderInterface
             config('ai.request_retries', 2),
             config('ai.retry_delay_ms', 200),
             throw: false
-        )->timeout(config('ai.request_timeout_seconds', 30))
+        )
+            ->connectTimeout(max(2, min((int) config('ai.request_timeout_seconds', 12), 8)))
+            ->timeout(config('ai.request_timeout_seconds', 12))
             ->acceptJson()
             ->withHeaders([
                 'x-api-key' => $apiKey,
