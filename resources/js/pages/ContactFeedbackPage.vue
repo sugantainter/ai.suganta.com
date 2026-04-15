@@ -39,8 +39,9 @@
                             v-model.trim="form.first_name"
                             type="text"
                             maxlength="100"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
                             placeholder="First name"
+                            :disabled="profileLocked"
                             required
                         >
                     </label>
@@ -50,8 +51,9 @@
                             v-model.trim="form.last_name"
                             type="text"
                             maxlength="100"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
                             placeholder="Last name"
+                            :disabled="profileLocked"
                             required
                         >
                     </label>
@@ -63,8 +65,9 @@
                         <input
                             v-model.trim="form.email"
                             type="email"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
                             placeholder="you@example.com"
+                            :disabled="profileLocked"
                             required
                         >
                     </label>
@@ -74,11 +77,15 @@
                             v-model.trim="form.phone"
                             type="text"
                             maxlength="30"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
                             placeholder="+91..."
+                            :disabled="profileLocked"
                         >
                     </label>
                 </div>
+                <p v-if="profileLocked" class="text-xs text-zinc-500">
+                    Profile info is auto-filled from your account and cannot be edited here.
+                </p>
 
                 <div v-if="formType === 'feedback'" class="grid gap-4 sm:grid-cols-2">
                     <label class="block">
@@ -156,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { showErrorAlert } from '../utils/alerts';
 
 const CONTACT_API_URL = 'https://api.suganta.com/api/v1/contacts';
@@ -165,6 +172,7 @@ const formType = ref('contact');
 const feedbackCategory = ref('General');
 const feedbackRating = ref('5');
 const submitting = ref(false);
+const profileLocked = ref(false);
 const successText = ref('');
 const errorText = ref('');
 
@@ -176,6 +184,58 @@ const form = ref({
     subject: '',
     message: '',
 });
+
+function resolveAuthProfile(overviewData) {
+    const direct = overviewData?.auth_user_display ?? {};
+    const authUser = overviewData?.auth_user ?? {};
+    const profileRoot = overviewData?.profile ?? {};
+    const profileUser = profileRoot?.user ?? {};
+    const profileDetails = profileRoot?.profile ?? {};
+
+    const firstName = String(authUser.first_name ?? profileDetails.first_name ?? '').trim();
+    const lastName = String(authUser.last_name ?? profileDetails.last_name ?? '').trim();
+
+    return {
+        first_name: firstName || String(direct.name ?? profileUser.name ?? '').split(' ').slice(0, 1).join(' ').trim(),
+        last_name: lastName || String(direct.name ?? profileUser.name ?? '').split(' ').slice(1).join(' ').trim(),
+        email: String(direct.email ?? authUser.email ?? profileUser.email ?? '').trim(),
+        phone: String(
+            direct.phone
+            ?? authUser.phone
+            ?? profileDetails.phone_primary
+            ?? profileDetails.principal_phone
+            ?? profileDetails.parent_phone
+            ?? profileDetails.phone_secondary
+            ?? ''
+        ).trim(),
+    };
+}
+
+async function preloadAuthUserProfile() {
+    try {
+        const response = await fetch('/api/v1/settings/overview', {
+            credentials: 'include',
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+        if (!response.ok) {
+            return;
+        }
+        const data = await response.json().catch(() => ({}));
+        const profile = resolveAuthProfile(data ?? {});
+        if (!profile.first_name || !profile.last_name || !profile.email) {
+            return;
+        }
+        form.value.first_name = profile.first_name;
+        form.value.last_name = profile.last_name;
+        form.value.email = profile.email;
+        form.value.phone = profile.phone;
+        profileLocked.value = true;
+    } catch {
+        // If profile prefill fails, keep editable fallback form behavior.
+    }
+}
 
 function switchType(type) {
     formType.value = type === 'feedback' ? 'feedback' : 'contact';
@@ -243,11 +303,17 @@ async function submitForm() {
         }
 
         successText.value = String(data?.message || 'Submitted successfully.');
+        const lockedProfile = {
+            first_name: form.value.first_name,
+            last_name: form.value.last_name,
+            email: form.value.email,
+            phone: form.value.phone,
+        };
         form.value = {
-            first_name: '',
-            last_name: '',
-            email: '',
-            phone: '',
+            first_name: lockedProfile.first_name,
+            last_name: lockedProfile.last_name,
+            email: lockedProfile.email,
+            phone: lockedProfile.phone,
             subject: formType.value === 'feedback' ? `${feedbackCategory.value} feedback` : '',
             message: '',
         };
@@ -259,4 +325,8 @@ async function submitForm() {
         submitting.value = false;
     }
 }
+
+onMounted(() => {
+    preloadAuthUserProfile();
+});
 </script>
