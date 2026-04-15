@@ -103,12 +103,38 @@
                     <div class="flex items-center justify-between gap-2">
                         <p class="text-sm font-medium text-zinc-200">Settings</p>
                         <p class="hidden text-xs text-zinc-500 md:block">{{ statusText }}</p>
-                        <RouterLink
-                            to="/"
-                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 md:hidden"
-                        >
-                            Back to chat
-                        </RouterLink>
+                        <div class="flex items-center gap-2">
+                            <a
+                                href="https://app.suganta.com/profile"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                            >
+                                Profile
+                            </a>
+                            <a
+                                href="https://app.suganta.com/subscriptions?s_type=3"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
+                            >
+                                Plan & Subscription
+                            </a>
+                            <a
+                                href="https://app.suganta.com/support-tickets"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                            >
+                                Support
+                            </a>
+                            <RouterLink
+                                to="/"
+                                class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 md:hidden"
+                            >
+                                Back to chat
+                            </RouterLink>
+                        </div>
                     </div>
                 </div>
                 <div ref="settingsScrollRef" class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 md:px-5 md:py-5">
