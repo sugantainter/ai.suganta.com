@@ -430,23 +430,25 @@ class UnifiedChatService
             return [];
         }
 
-        $messageRows = $connection->table('ai_messages')
-            ->select(['ai_conversation_id', 'content'])
+        $latestAssistantMessageIds = $connection->table('ai_messages')
+            ->selectRaw('ai_conversation_id, MAX(id) AS latest_id')
             ->where('role', 'assistant')
             ->whereIn('ai_conversation_id', $conversationIds)
-            ->orderByDesc('id')
+            ->groupBy('ai_conversation_id');
+
+        $messageRows = $connection->table('ai_messages as messages')
+            ->joinSub($latestAssistantMessageIds, 'latest_assistant', function ($join): void {
+                $join->on('messages.id', '=', 'latest_assistant.latest_id');
+            })
+            ->select(['messages.ai_conversation_id', 'messages.content'])
             ->get();
 
-        $lastMessages = [];
-        foreach ($messageRows as $row) {
-            $conversationId = (int) ($row->ai_conversation_id ?? 0);
-            if ($conversationId <= 0 || isset($lastMessages[$conversationId])) {
-                continue;
-            }
-            $lastMessages[$conversationId] = (string) ($row->content ?? '');
-        }
-
-        return $lastMessages;
+        return $messageRows
+            ->mapWithKeys(fn ($row): array => [
+                (int) ($row->ai_conversation_id ?? 0) => (string) ($row->content ?? ''),
+            ])
+            ->filter(fn (string $content, int $conversationId): bool => $conversationId > 0)
+            ->all();
     }
 
     /**
