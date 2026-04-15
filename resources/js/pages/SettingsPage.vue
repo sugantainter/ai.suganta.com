@@ -67,9 +67,20 @@
                         </RouterLink>
                     </div>
                 </div>
-                <div ref="settingsScrollRef" class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-5 md:py-5">
+                <div ref="settingsScrollRef" class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 md:px-5 md:py-5">
                     <div class="space-y-4">
-                <div id="settings-section-general" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                <div class="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden">
+                    <button
+                        v-for="item in menuItems"
+                        :key="`mobile-${item.id}`"
+                        class="whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200"
+                        type="button"
+                        @click="scrollToSection(item.id)"
+                    >
+                        {{ item.label }}
+                    </button>
+                </div>
+                <div id="settings-section-general" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                     <div class="flex flex-wrap items-center gap-3">
                         <img
                             v-if="displayUser.avatar"
@@ -90,7 +101,7 @@
                     </div>
                 </div>
 
-                <div id="settings-section-profile" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                <div id="settings-section-profile" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                     <h2 class="text-base font-semibold text-white">Profile information</h2>
                     <p class="mt-1 text-sm text-zinc-400">Synced with `api.suganta.com/api/v1/profile`.</p>
                     <div class="mt-4 grid gap-3 md:grid-cols-2">
@@ -132,7 +143,7 @@
                 </div>
 
                 <div class="grid gap-4 xl:grid-cols-2">
-                    <div id="settings-section-usage" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                    <div id="settings-section-usage" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                         <h2 class="text-base font-semibold text-white">Usage</h2>
                         <p class="mt-1 text-sm text-zinc-400">Token usage and model access overview.</p>
                         <div class="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
@@ -146,7 +157,7 @@
                         </div>
                     </div>
 
-                    <div id="settings-section-api-keys" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                    <div id="settings-section-api-keys" class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                         <h2 class="text-base font-semibold text-white">Provider API keys</h2>
                         <p class="mt-1 text-sm text-zinc-400">Store your own provider keys securely.</p>
 
@@ -182,13 +193,13 @@
                 </div>
 
                 <div id="settings-section-security" class="grid gap-4 xl:grid-cols-2">
-                    <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                    <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                         <h2 class="text-base font-semibold text-white">Saved key status</h2>
                         <div class="mt-3 space-y-2">
                             <div
                                 v-for="item in providerKeys"
                                 :key="item.provider"
-                                class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm"
+                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm"
                             >
                                 <div class="flex items-center gap-3">
                                     <span class="text-zinc-300">{{ item.provider }}</span>
@@ -208,7 +219,7 @@
                         </div>
                     </div>
 
-                    <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                    <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-4 sm:p-5">
                         <h2 class="text-base font-semibold text-white">Update password</h2>
                         <p class="mt-1 text-sm text-zinc-400">Use a strong password with at least 8 characters.</p>
                         <div class="mt-4 space-y-3">

@@ -38,6 +38,9 @@ const routes = [
             keywords: 'shared ai chat, public ai conversation, suganta ai',
             robots: 'index, follow',
             ogType: 'article',
+            ogImage: '/logo/favicon.png',
+            twitterImage: '/logo/favicon.png',
+            twitterCard: 'summary',
         },
     },
     {
@@ -86,7 +89,12 @@ router.afterEach((to) => {
     );
     const robots = String(to.meta?.robots || 'index, follow');
     const ogType = String(to.meta?.ogType || 'website');
+    const ogImage = String(to.meta?.ogImage || '/logo/favicon.png');
+    const twitterImage = String(to.meta?.twitterImage || '/logo/favicon.png');
+    const twitterCard = String(to.meta?.twitterCard || 'summary_large_image');
     const canonicalUrl = `${window.location.origin}${to.fullPath}`;
+    const resolvedOgImage = ogImage.startsWith('http') ? ogImage : `${window.location.origin}${ogImage}`;
+    const resolvedTwitterImage = twitterImage.startsWith('http') ? twitterImage : `${window.location.origin}${twitterImage}`;
 
     document.title = title;
     setMetaTag('meta[name="description"]', 'name', 'description', description);
@@ -96,9 +104,11 @@ router.afterEach((to) => {
     setMetaTag('meta[property="og:title"]', 'property', 'og:title', title);
     setMetaTag('meta[property="og:description"]', 'property', 'og:description', description);
     setMetaTag('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
-    setMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    setMetaTag('meta[property="og:image"]', 'property', 'og:image', resolvedOgImage);
+    setMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', twitterCard);
     setMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', title);
     setMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', description);
+    setMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', resolvedTwitterImage);
     setCanonical(canonicalUrl);
 });
 

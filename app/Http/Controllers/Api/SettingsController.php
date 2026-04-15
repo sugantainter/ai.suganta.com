@@ -7,6 +7,7 @@ use App\Http\Requests\ProviderCredentialRequest;
 use App\Services\UnifiedChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -268,6 +269,13 @@ class SettingsController extends Controller
             '/profile',
             'https://api.suganta.com/api/v1/profile'
         );
+        $tenantId = (int) $request->attributes->get('tenant_id');
+        $cooldownCacheKey = "settings:profile-fetch-cooldown:{$tenantId}";
+
+        // Skip repeated failing upstream calls for a short period.
+        if (Cache::has($cooldownCacheKey)) {
+            return $this->fallbackProfileData($request);
+        }
 
         try {
             $response = Http::acceptJson()
@@ -276,26 +284,90 @@ class SettingsController extends Controller
                 ->get($profileEndpoint);
 
             if (! $response->ok()) {
-                Log::warning('Profile fetch failed in settings controller.', [
-                    'tenant_id' => (int) $request->attributes->get('tenant_id'),
-                    'endpoint' => $profileEndpoint,
-                    'status' => $response->status(),
-                ]);
-                return [];
+                // Put brief cooldown on upstream 5xx responses to avoid log spam/noisy retries.
+                if ($response->serverError()) {
+                    Cache::put($cooldownCacheKey, true, now()->addMinutes(2));
+                }
+
+                $this->logProfileFetchFailure(
+                    $tenantId,
+                    $profileEndpoint,
+                    $response->status(),
+                    (string) data_get((array) $response->json(), 'message', '')
+                );
+
+                return $this->fallbackProfileData($request);
             }
 
             $payload = (array) $response->json();
 
-            return (array) data_get($payload, 'data', []);
+            $data = (array) data_get($payload, 'data', []);
+            if ($data === []) {
+                return $this->fallbackProfileData($request);
+            }
+
+            return $data;
         } catch (\Throwable $exception) {
-            Log::error('Profile fetch threw exception in settings controller.', [
-                'tenant_id' => (int) $request->attributes->get('tenant_id'),
-                'endpoint' => $profileEndpoint,
-                'error' => $exception->getMessage(),
-                'exception' => $exception::class,
-            ]);
-            return [];
+            Cache::put($cooldownCacheKey, true, now()->addMinutes(2));
+            $this->logProfileFetchFailure(
+                $tenantId,
+                $profileEndpoint,
+                null,
+                $exception->getMessage(),
+                $exception::class
+            );
+
+            return $this->fallbackProfileData($request);
         }
+    }
+
+    private function fallbackProfileData(Request $request): array
+    {
+        $authUser = $this->resolveAuthUser($request);
+        $firstName = trim((string) data_get($authUser, 'first_name', ''));
+        $lastName = trim((string) data_get($authUser, 'last_name', ''));
+        $fullName = trim((string) data_get($authUser, 'name', trim($firstName.' '.$lastName)));
+
+        return [
+            'user' => [
+                'id' => data_get($authUser, 'id', data_get($authUser, 'user_id')),
+                'name' => $fullName !== '' ? $fullName : null,
+                'email' => data_get($authUser, 'email'),
+                'role' => data_get($authUser, 'role'),
+            ],
+            'profile' => [
+                'first_name' => $firstName !== '' ? $firstName : null,
+                'last_name' => $lastName !== '' ? $lastName : null,
+                'phone_primary' => data_get($authUser, 'phone'),
+            ],
+            'profile_image_url' => data_get($authUser, 'avatar', data_get($authUser, 'profile_image')),
+            'completion_percentage' => 0,
+            'source' => 'fallback',
+        ];
+    }
+
+    private function logProfileFetchFailure(
+        int $tenantId,
+        string $profileEndpoint,
+        ?int $status = null,
+        string $message = '',
+        ?string $exceptionClass = null
+    ): void {
+        $statusPart = $status !== null ? "status:{$status}" : 'status:none';
+        $throttleKey = "settings:profile-fetch-log:{$tenantId}:{$statusPart}";
+
+        // Log same upstream failure at most once every 2 minutes per tenant/status.
+        if (! Cache::add($throttleKey, true, now()->addMinutes(2))) {
+            return;
+        }
+
+        Log::warning('Profile fetch failed in settings controller.', [
+            'tenant_id' => $tenantId,
+            'endpoint' => $profileEndpoint,
+            'status' => $status,
+            'upstream_message' => $message !== '' ? $message : null,
+            'exception' => $exceptionClass,
+        ]);
     }
 
     private function normalizeAuthUser(array $authUser, array $profileData = []): array

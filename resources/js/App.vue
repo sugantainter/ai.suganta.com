@@ -1,6 +1,6 @@
 <template>
     <div class="min-h-screen bg-zinc-950 text-zinc-100">
-        <main :class="isChatRoute ? 'h-dvh' : 'mx-auto min-h-dvh max-w-6xl px-4 py-8'">
+        <main :class="isFullWidthRoute ? 'h-dvh' : 'mx-auto min-h-dvh max-w-6xl px-4 py-8'">
             <RouterView />
         </main>
     </div>
@@ -12,7 +12,7 @@ import { useRoute } from 'vue-router';
 import { RouterView } from 'vue-router';
 
 const route = useRoute();
-const isChatRoute = computed(() => {
-    return route.name === 'chat.home' || route.name === 'chat.conversation';
+const isFullWidthRoute = computed(() => {
+    return ['chat.home', 'chat.conversation', 'chat.shared', 'settings'].includes(String(route.name ?? ''));
 });
 </script>

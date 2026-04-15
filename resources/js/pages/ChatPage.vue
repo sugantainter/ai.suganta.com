@@ -75,61 +75,19 @@
             </aside>
 
             <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
-                <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
-                    <div v-if="isSharedView" class="flex items-center justify-between gap-2">
-                        <div>
-                            <p class="text-sm font-semibold text-zinc-100">Shared conversation</p>
-                            <p class="text-xs text-zinc-500">View only mode</p>
-                        </div>
-                        <a
-                            href="/"
-                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
-                        >
-                            Login
-                        </a>
-                    </div>
-                    <div v-else class="flex items-center gap-2">
-                        <button
-                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
-                            @click="openSearchModal"
-                        >
-                            Search
-                        </button>
-                        <select
-                            v-model="model"
-                            :disabled="modelOptions.length === 0"
-                            class="max-w-[260px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                        >
-                            <option v-for="item in modelOptions" :key="item.model" :value="item.model">
-                                {{ item.display_name }}
-                            </option>
-                        </select>
-                        <select
-                            v-model="capabilityFilter"
-                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                        >
-                            <option value="all">All</option>
-                            <option value="vision">Vision</option>
-                            <option value="reasoning">Reasoning</option>
-                            <option value="web_search">Web search</option>
-                            <option value="tools">Tools</option>
-                        </select>
-                        <button
-                            class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
-                            :disabled="shareLoading || !currentConversationId"
-                            @click="shareConversation"
-                        >
-                            {{ shareLoading ? 'Sharing...' : 'Share' }}
-                        </button>
-                        <p class="ml-auto text-xs text-zinc-500">{{ statusText }}</p>
-                    </div>
-                    <p v-if="modelErrorMessage" class="mt-2 text-xs text-red-400">
-                        {{ modelErrorMessage }}
-                    </p>
-                    <p v-if="sharedUrlText && !isSharedView" class="mt-2 truncate text-xs text-emerald-400">
-                        Share link: {{ sharedUrlText }}
-                    </p>
-                </div>
+                <ChatTopBar
+                    v-model="model"
+                    :capability-filter="capabilityFilter"
+                    :is-shared-view="isSharedView"
+                    :model-options="modelOptions"
+                    :status-text="statusText"
+                    :model-error-message="modelErrorMessage"
+                    :share-loading="shareLoading"
+                    :can-share="Boolean(currentConversationId)"
+                    @update:capability-filter="capabilityFilter = $event"
+                    @open-search="openSearchModal"
+                    @share="shareConversation"
+                />
 
                 <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     <div v-if="messages.length" class="mx-auto w-full max-w-3xl px-4 py-8">
@@ -205,7 +163,7 @@
                         >
                             {{ chatErrorMessage }}
                         </div>
-                        <div class="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2">
+                        <div class="rounded-[1.6rem] border border-zinc-700 bg-zinc-900 px-3 py-3 sm:rounded-full sm:py-2">
                             <div v-if="attachments.length && !isSharedView" class="mb-3 flex flex-wrap gap-2">
                                 <div
                                     v-for="item in attachments"
@@ -234,7 +192,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1.5 sm:gap-2">
                                 <input
                                     ref="fileInputRef"
                                     type="file"
@@ -244,7 +202,7 @@
                                     @change="onFilePicked"
                                 >
                                 <button
-                                    class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+                                    class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:h-9 sm:w-9"
                                     type="button"
                                     :disabled="isSharedView"
                                     @click="openFilePicker"
@@ -259,12 +217,12 @@
                                     v-model="inputMessage"
                                     rows="1"
                                     :disabled="isSharedView"
-                                    class="max-h-40 min-h-9 w-full resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+                                    class="max-h-44 min-h-12 w-full resize-none bg-transparent py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 sm:max-h-40 sm:min-h-9 sm:py-2"
                                     :placeholder="isSharedView ? 'Login to continue this chat' : 'Ask anything'"
                                     @keydown.enter.exact.prevent="sendMessage"
                                 />
                                 <button
-                                    class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-60"
+                                    class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-60 sm:h-9 sm:w-9"
                                     type="button"
                                     :disabled="isSharedView || !speechSupported"
                                     @click="toggleMic"
@@ -275,7 +233,7 @@
                                     </svg>
                                 </button>
                                 <button
-                                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 sm:h-9 sm:w-9"
                                     :disabled="isSharedView || sending || (!inputMessage.trim() && attachments.length === 0)"
                                     @click="sendMessage"
                                     :title="sending ? 'Sending' : 'Send message'"
@@ -291,45 +249,26 @@
             </section>
         </div>
 
-        <div
-            v-if="searchModalOpen"
-            class="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 pt-20"
-            @click.self="closeSearchModal"
-        >
-            <div class="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-[#1f1f1f] shadow-2xl">
-                <div class="border-b border-zinc-700 p-4">
-                    <input
-                        v-model="searchQuery"
-                        type="text"
-                        class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-zinc-500"
-                        placeholder="Search chat history..."
-                        @keydown.esc="closeSearchModal"
-                    />
-                </div>
-                <div class="max-h-[60vh] overflow-auto p-2">
-                    <p v-if="searchLoading" class="px-3 py-3 text-sm text-zinc-500">Searching...</p>
-                    <p v-else-if="searchError" class="px-3 py-3 text-sm text-red-400">{{ searchError }}</p>
-                    <button
-                        v-for="conversation in filteredConversations"
-                        :key="`search-${conversation.id}`"
-                        class="mb-1 w-full rounded-lg px-3 py-2 text-left text-zinc-300 hover:bg-zinc-800/60"
-                        @click="openConversationFromSearch(conversation.id)"
-                    >
-                        <p class="truncate text-sm font-medium text-zinc-100">{{ conversation.subject || 'Untitled chat' }}</p>
-                        <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
-                    </button>
-                    <p v-if="!searchLoading && !searchError && !searchQuery.trim() && !filteredConversations.length" class="px-3 py-3 text-sm text-zinc-500">
-                        No previous chats found yet.
-                    </p>
-                    <p v-else-if="!searchLoading && !searchError && !searchQuery.trim()" class="px-3 py-3 text-sm text-zinc-500">
-                        Select any previous chat to continue the conversation.
-                    </p>
-                    <p v-else-if="!searchLoading && !searchError && searchQuery.trim() && !filteredConversations.length" class="px-3 py-3 text-sm text-zinc-500">
-                        No matching chats found.
-                    </p>
-                </div>
-            </div>
-        </div>
+        <ShareChatModal
+            :open="shareModalOpen"
+            :title="shareModalTitle"
+            :url="sharedUrlText"
+            :copied-text="shareCopiedText"
+            @close="closeShareModal"
+            @copy="copyShareLink"
+            @share-platform="shareOnPlatform"
+        />
+
+        <ChatSearchModal
+            :open="searchModalOpen"
+            :query="searchQuery"
+            :loading="searchLoading"
+            :error="searchError"
+            :conversations="filteredConversations"
+            @close="closeSearchModal"
+            @update:query="searchQuery = $event"
+            @open-conversation="openConversationFromSearch"
+        />
     </div>
 </template>
 
@@ -337,6 +276,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showErrorAlert } from '../utils/alerts';
+import ChatTopBar from '../components/chat/ChatTopBar.vue';
+import ShareChatModal from '../components/chat/ShareChatModal.vue';
+import ChatSearchModal from '../components/chat/ChatSearchModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -376,6 +318,9 @@ const historyPage = ref(1);
 const historyHasMore = ref(true);
 const shareLoading = ref(false);
 const sharedUrlText = ref('');
+const shareModalOpen = ref(false);
+const shareCopiedText = ref('Copy');
+const shareModalTitle = ref('Share conversation');
 const SpeechRecognitionCtor = typeof window !== 'undefined'
     ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
     : null;
@@ -409,6 +354,18 @@ const filteredConversations = computed(() => {
         return conversations.value;
     }
     return searchResults.value;
+});
+
+const currentConversationSubject = computed(() => {
+    const conversationId = currentConversationId.value;
+    if (!conversationId) {
+        return '';
+    }
+    const match = conversations.value.find((item) => Number(item?.id) === Number(conversationId));
+    if (!match) {
+        return '';
+    }
+    return String(match.subject || '').trim();
 });
 
 watch([capabilityFilter, models], () => {
@@ -902,10 +859,14 @@ async function shareConversation() {
         });
         const shareUrl = String(data.share_url ?? '');
         sharedUrlText.value = shareUrl;
-        if (shareUrl !== '' && navigator?.clipboard?.writeText) {
-            await navigator.clipboard.writeText(shareUrl);
-            statusText.value = 'Share link copied to clipboard';
-        } else if (shareUrl !== '') {
+        shareCopiedText.value = 'Copy';
+        shareModalTitle.value = String(
+            data.conversation?.subject
+            || currentConversationSubject.value
+            || 'Shared conversation'
+        );
+        if (shareUrl !== '') {
+            shareModalOpen.value = true;
             statusText.value = 'Share link created';
         }
     } catch (error) {
@@ -915,6 +876,45 @@ async function shareConversation() {
     } finally {
         shareLoading.value = false;
     }
+}
+
+function closeShareModal() {
+    shareModalOpen.value = false;
+}
+
+async function copyShareLink() {
+    const shareUrl = String(sharedUrlText.value || '').trim();
+    if (shareUrl === '') {
+        return;
+    }
+
+    try {
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+        } else {
+            throw new Error('Clipboard unavailable');
+        }
+        shareCopiedText.value = 'Copied';
+        statusText.value = 'Share link copied';
+    } catch {
+        showErrorAlert('Unable to copy automatically. Please copy the link manually.', 'Copy failed');
+    }
+}
+
+function shareOnPlatform(platform) {
+    const shareUrl = encodeURIComponent(String(sharedUrlText.value || '').trim());
+    const shareTitle = encodeURIComponent(String(shareModalTitle.value || 'Shared conversation'));
+    if (shareUrl === '') {
+        return;
+    }
+
+    const target = platform === 'x'
+        ? `https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareTitle}`
+        : platform === 'linkedin'
+            ? `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`
+            : `https://www.reddit.com/submit?url=${shareUrl}&title=${shareTitle}`;
+
+    window.open(target, '_blank', 'noopener,noreferrer');
 }
 
 async function loadSharedConversation(shareToken) {

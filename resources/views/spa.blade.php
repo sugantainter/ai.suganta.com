@@ -23,12 +23,12 @@
         <meta property="og:title" content="{{ $defaultTitle }}">
         <meta property="og:description" content="{{ $defaultDescription }}">
         <meta property="og:url" content="{{ $canonicalUrl }}/">
-        <meta property="og:image" content="{{ asset('logo/Su250.png') }}">
+        <meta property="og:image" content="{{ asset('logo/favicon.png') }}">
 
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:title" content="{{ $defaultTitle }}">
         <meta name="twitter:description" content="{{ $defaultDescription }}">
-        <meta name="twitter:image" content="{{ asset('logo/Su250.png') }}">
+        <meta name="twitter:image" content="{{ asset('logo/favicon.png') }}">
         <link rel="icon" type="image/png" href="{{ asset('logo/favicon.png') }}">
         <link rel="shortcut icon" href="{{ asset('logo/favicon.ico') }}">
         <link rel="apple-touch-icon" href="{{ asset('logo/Su250.png') }}">

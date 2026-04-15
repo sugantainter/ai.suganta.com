@@ -1,14 +1,14 @@
 <template>
     <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
         <div class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
-            <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
-                <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+            <div class="shrink-0 border-b border-zinc-800 bg-[#1b1b1b]/80 px-4 py-3 backdrop-blur">
+                <div class="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <a
                             href="https://www.suganta.com"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="rounded-xl border border-zinc-800 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/30"
+                            class="rounded-xl border border-zinc-700 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/30"
                         >
                             <img
                                 src="/logo/Su250.png"
@@ -18,12 +18,12 @@
                         </a>
                         <div>
                             <p class="text-sm font-semibold text-zinc-100">Shared conversation</p>
-                            <p class="text-xs text-zinc-500">Public view-only page</p>
+                            <p class="text-xs text-zinc-400">Public view-only page</p>
                         </div>
                     </div>
                     <a
                         href="/"
-                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-100 hover:bg-zinc-800"
                     >
                         Login
                     </a>
@@ -31,37 +31,50 @@
             </div>
 
             <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <div v-if="messages.length" class="mx-auto w-full max-w-3xl px-4 py-8">
+                <div class="mx-auto w-full max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
+                    <div class="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
+                        <p class="text-sm text-zinc-300">This is a public snapshot of a conversation.</p>
+                        <p class="mt-1 text-xs text-zinc-500">Sign in to continue, upload files, and access advanced tools.</p>
+                    </div>
+
+                    <div v-if="messages.length" class="space-y-4">
                     <div
                         v-for="(message, index) in messages"
                         :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
                         class="mb-4"
                     >
                         <div
-                            class="whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6"
+                            class="whitespace-pre-wrap rounded-2xl border border-zinc-800 px-3 py-2.5 text-sm leading-6 shadow-sm shadow-black/20 sm:px-4 sm:py-3"
                             :class="message.role === 'user'
                                 ? 'ml-auto max-w-[86%] bg-zinc-700/70 text-zinc-100'
-                                : 'max-w-full bg-zinc-900/70 text-zinc-100'"
+                                : 'max-w-full bg-zinc-900/80 text-zinc-100'"
                         >
                             {{ message.content }}
                         </div>
                     </div>
 
-                    <div class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
-                        <p>Login to access more features and continue this chat.</p>
-                        <a href="/" class="mt-2 inline-block text-xs text-emerald-400 hover:text-emerald-300">Login to continue</a>
+                        <div class="mt-5 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-4 text-sm text-zinc-300">
+                            <p class="font-medium text-zinc-100">Want to continue this conversation?</p>
+                            <p class="mt-1 text-zinc-400">Login to access more features and continue with the same chat style.</p>
+                            <a
+                                href="/"
+                                class="mt-3 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white"
+                            >
+                                Login to continue
+                            </a>
+                        </div>
                     </div>
-                </div>
-                <div v-else class="flex h-full items-center justify-center px-5">
-                    <div class="w-full max-w-3xl text-center">
-                        <p class="text-2xl font-medium text-zinc-200">{{ statusText }}</p>
-                        <p class="mt-3 text-sm text-zinc-500">Open a valid shared chat link, or login to start your own conversation.</p>
-                        <a
-                            href="/"
-                            class="mt-4 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 hover:bg-zinc-800"
-                        >
-                            Login
-                        </a>
+                    <div v-else class="flex min-h-[55vh] items-center justify-center">
+                        <div class="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 text-center sm:p-8">
+                            <p class="text-2xl font-semibold text-zinc-100">{{ statusText }}</p>
+                            <p class="mt-3 text-sm text-zinc-400">Open a valid shared chat link, or login to start your own conversation.</p>
+                            <a
+                                href="/"
+                                class="mt-5 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white"
+                            >
+                                Login
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -94,6 +107,7 @@ function setMetaTag(selector, attrName, attrValue, content) {
 
 function applySharedSeo(title, description) {
     const canonicalUrl = `${window.location.origin}${route.fullPath}`;
+    const shareImageUrl = `${window.location.origin}/logo/favicon.png`;
     document.title = title;
     setMetaTag('meta[name="description"]', 'name', 'description', description);
     setMetaTag('meta[name="keywords"]', 'name', 'keywords', 'shared ai chat, public ai conversation, suganta ai');
@@ -102,8 +116,11 @@ function applySharedSeo(title, description) {
     setMetaTag('meta[property="og:title"]', 'property', 'og:title', title);
     setMetaTag('meta[property="og:description"]', 'property', 'og:description', description);
     setMetaTag('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
+    setMetaTag('meta[property="og:image"]', 'property', 'og:image', shareImageUrl);
+    setMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary');
     setMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', title);
     setMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', description);
+    setMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', shareImageUrl);
 }
 
 async function parseApiResponse(response) {
