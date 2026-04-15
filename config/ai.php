@@ -12,6 +12,8 @@ return [
     'max_in_flight_requests_per_tenant' => (int) env('AI_MAX_IN_FLIGHT_REQUESTS_PER_TENANT', 12),
     'provider_keys_cache_ttl_seconds' => (int) env('AI_PROVIDER_KEYS_CACHE_TTL_SECONDS', 30),
     'models_cache_ttl_seconds' => (int) env('AI_MODELS_CACHE_TTL_SECONDS', 120),
+    'buffer_request_logs_to_redis' => (bool) env('AI_BUFFER_REQUEST_LOGS_TO_REDIS', true),
+    'request_log_buffer_ttl_seconds' => (int) env('AI_REQUEST_LOG_BUFFER_TTL_SECONDS', 600),
     'circuit_breaker_failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3),
     'circuit_breaker_cooldown_seconds' => (int) env('AI_CIRCUIT_BREAKER_COOLDOWN_SECONDS', 45),
     'circuit_breaker_failure_window_seconds' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_WINDOW_SECONDS', 60),

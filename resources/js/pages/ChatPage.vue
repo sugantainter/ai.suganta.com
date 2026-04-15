@@ -118,6 +118,13 @@
                                     Settings
                                 </RouterLink>
                             </div>
+                            <button
+                                class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-[11px] text-zinc-200 hover:bg-zinc-800"
+                                type="button"
+                                @click="mobileHistoryOpen = true"
+                            >
+                                History
+                            </button>
                         </div>
                     </div>
                     <ChatTopBar
@@ -348,6 +355,63 @@
             @open-conversation="openConversationFromSearch"
         />
 
+        <div
+            v-if="!isSharedView && mobileHistoryOpen"
+            class="fixed inset-0 z-70 bg-black/70 md:hidden"
+            @click.self="mobileHistoryOpen = false"
+        >
+            <div class="absolute left-0 top-0 flex h-full w-[86%] max-w-sm flex-col border-r border-zinc-800 bg-[#171717]">
+                <div class="shrink-0 space-y-2 border-b border-zinc-800 p-3">
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs uppercase tracking-wide text-zinc-500">Recent chats</p>
+                        <button
+                            class="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+                            type="button"
+                            @click="mobileHistoryOpen = false"
+                        >
+                            Close
+                        </button>
+                    </div>
+                    <button
+                        class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
+                        type="button"
+                        @click="startNewChat"
+                    >
+                        + New chat
+                    </button>
+                </div>
+                <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" @scroll="handleHistoryScroll">
+                    <div
+                        v-for="conversation in conversations"
+                        :key="`mobile-${conversation.id}`"
+                        class="mb-1 flex items-start gap-1 rounded-lg px-1 py-1 text-sm transition"
+                        :class="currentConversationId === conversation.id ? 'bg-zinc-800' : 'hover:bg-zinc-800/70'"
+                    >
+                        <button
+                            class="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
+                            :class="currentConversationId === conversation.id ? 'text-white' : 'text-zinc-300'"
+                            type="button"
+                            @click="openConversation(conversation.id)"
+                        >
+                            <p class="truncate font-medium">{{ conversation.subject || 'Untitled chat' }}</p>
+                            <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
+                        </button>
+                        <button
+                            class="mt-0.5 rounded-md px-2 py-1 text-xs text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60"
+                            :disabled="deletingConversationId === conversation.id"
+                            type="button"
+                            @click.stop="deleteConversation(conversation.id)"
+                        >
+                            {{ deletingConversationId === conversation.id ? '...' : 'Delete' }}
+                        </button>
+                    </div>
+                    <p v-if="!conversations.length" class="px-3 py-2 text-xs text-zinc-500">No conversations yet.</p>
+                    <p v-if="historyLoading" class="px-3 py-2 text-xs text-zinc-500">Loading history...</p>
+                    <p v-else-if="!historyHasMore && conversations.length" class="px-3 py-2 text-xs text-zinc-600">No more chats</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 </template>
 
@@ -403,6 +467,7 @@ const sharedUrlText = ref('');
 const shareModalOpen = ref(false);
 const shareCopiedText = ref('Copy');
 const shareModalTitle = ref('Share conversation');
+const mobileHistoryOpen = ref(false);
 const SpeechRecognitionCtor = typeof window !== 'undefined'
     ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
     : null;
@@ -763,6 +828,7 @@ async function openConversation(conversationId, syncRoute = true) {
     }
 
     currentConversationId.value = parsedConversationId;
+    mobileHistoryOpen.value = false;
     chatErrorMessage.value = '';
     statusText.value = 'Loading conversation...';
     try {
@@ -792,6 +858,7 @@ async function startNewChat() {
     }
 
     currentConversationId.value = null;
+    mobileHistoryOpen.value = false;
     messages.value = [];
     conversationAssets.value = [];
     uploadsModalOpen.value = false;
@@ -866,17 +933,25 @@ async function deleteConversation(conversationId) {
 }
 
 async function runSearchFromDatabase(query) {
-    const trimmed = String(query ?? '').trim();
+    const raw = String(query ?? '').trim();
+    const trimmed = raw.slice(0, 120);
+    if (raw.length > 120) {
+        searchError.value = 'Search is limited to first 120 characters.';
+    }
     if (trimmed === '') {
         searchResults.value = conversations.value;
         searchLoading.value = false;
-        searchError.value = '';
+        if (raw.length <= 120) {
+            searchError.value = '';
+        }
         return;
     }
 
     const requestId = ++activeSearchRequestId;
     searchLoading.value = true;
-    searchError.value = '';
+    if (raw.length <= 120) {
+        searchError.value = '';
+    }
     try {
         const data = await apiRequest(`/api/v1/chat/histories/search?q=${encodeURIComponent(trimmed)}&limit=30&page=1`);
         if (requestId !== activeSearchRequestId) {

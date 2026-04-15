@@ -5,6 +5,7 @@ namespace App\Services;
 use App\AI\Exceptions\TokenLimitExceededException;
 use App\AI\Exceptions\TooManyConcurrentRequestsException;
 use App\AI\ProviderRegistry;
+use App\Jobs\SyncBufferedRequestLogJob;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
 use App\Models\AiModel;
@@ -313,30 +314,23 @@ class UnifiedChatService
         $limit = max(1, min($limit, 100));
         $page = max(1, $page);
 
-        $latestAssistantSub = $connection->table('ai_messages')
-            ->selectRaw('MAX(id) as id, ai_conversation_id')
-            ->where('role', 'assistant')
-            ->groupBy('ai_conversation_id');
-
         $query = $connection->table('ai_conversations')
-            ->leftJoinSub($latestAssistantSub, 'last_message_ids', function ($join): void {
-                $join->on('last_message_ids.ai_conversation_id', '=', 'ai_conversations.id');
-            })
-            ->leftJoin('ai_messages as last_message', 'last_message.id', '=', 'last_message_ids.id')
             ->where('ai_conversations.user_id', $tenantId)
-            ->select([
-                'ai_conversations.*',
-                'last_message.content as last_assistant_message',
-            ])
             ->orderByDesc('last_used_at')
             ->orderByDesc('id');
 
         $total = (clone $query)->count();
         $rows = $query->forPage($page, $limit)->get();
+        $conversationIds = $rows->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+        $lastAssistantMessages = $this->fetchLastAssistantMessages($connection, $conversationIds);
 
-        $conversations = $rows->map(function ($conversation): array {
+        $conversations = $rows->map(function ($conversation) use ($lastAssistantMessages): array {
+            $conversationId = (int) ($conversation->id ?? 0);
             return [
-                'id' => (int) $conversation->id,
+                'id' => $conversationId,
                 'subject' => (string) ($conversation->subject ?? ''),
                 'status' => (string) ($conversation->status ?? 'active'),
                 'model' => (string) ($conversation->model ?? ''),
@@ -347,7 +341,7 @@ class UnifiedChatService
                 'last_used_at' => (string) ($conversation->last_used_at ?? ''),
                 'created_at' => (string) ($conversation->created_at ?? ''),
                 'updated_at' => (string) ($conversation->updated_at ?? ''),
-                'last_assistant_message' => (string) ($conversation->last_assistant_message ?? ''),
+                'last_assistant_message' => (string) ($lastAssistantMessages[$conversationId] ?? ''),
             ];
         })->values()->all();
 
@@ -368,41 +362,40 @@ class UnifiedChatService
         $connection = DB::connection((string) config('ai.history_connection'));
         $limit = max(1, min($limit, 100));
         $page = max(1, $page);
-        $term = trim($query);
+        $term = mb_substr(trim($query), 0, 120);
 
         if ($term === '') {
             return $this->listConversationHistories($tenantId, $limit, $page);
         }
 
-        $latestAssistantSub = $connection->table('ai_messages')
-            ->selectRaw('MAX(id) as id, ai_conversation_id')
-            ->where('role', 'assistant')
-            ->groupBy('ai_conversation_id');
-
+        $likeTerm = '%'.$term.'%';
         $queryBuilder = $connection->table('ai_conversations')
-            ->leftJoinSub($latestAssistantSub, 'last_message_ids', function ($join): void {
-                $join->on('last_message_ids.ai_conversation_id', '=', 'ai_conversations.id');
-            })
-            ->leftJoin('ai_messages as last_message', 'last_message.id', '=', 'last_message_ids.id')
             ->where('ai_conversations.user_id', $tenantId)
-            ->where(function ($search) use ($term): void {
-                $likeTerm = '%'.$term.'%';
+            ->where(function ($search) use ($likeTerm): void {
                 $search->where('ai_conversations.subject', 'like', $likeTerm)
-                    ->orWhere('last_message.content', 'like', $likeTerm);
+                    ->orWhereExists(function ($exists) use ($likeTerm): void {
+                        $exists->selectRaw('1')
+                            ->from('ai_messages')
+                            ->whereColumn('ai_messages.ai_conversation_id', 'ai_conversations.id')
+                            ->where('ai_messages.role', 'assistant')
+                            ->where('ai_messages.content', 'like', $likeTerm);
+                    });
             })
-            ->select([
-                'ai_conversations.*',
-                'last_message.content as last_assistant_message',
-            ])
             ->orderByDesc('last_used_at')
             ->orderByDesc('id');
 
         $total = (clone $queryBuilder)->count();
         $rows = $queryBuilder->forPage($page, $limit)->get();
+        $conversationIds = $rows->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+        $lastAssistantMessages = $this->fetchLastAssistantMessages($connection, $conversationIds);
 
-        $conversations = $rows->map(function ($conversation): array {
+        $conversations = $rows->map(function ($conversation) use ($lastAssistantMessages): array {
+            $conversationId = (int) ($conversation->id ?? 0);
             return [
-                'id' => (int) $conversation->id,
+                'id' => $conversationId,
                 'subject' => (string) ($conversation->subject ?? ''),
                 'status' => (string) ($conversation->status ?? 'active'),
                 'model' => (string) ($conversation->model ?? ''),
@@ -413,7 +406,7 @@ class UnifiedChatService
                 'last_used_at' => (string) ($conversation->last_used_at ?? ''),
                 'created_at' => (string) ($conversation->created_at ?? ''),
                 'updated_at' => (string) ($conversation->updated_at ?? ''),
-                'last_assistant_message' => (string) ($conversation->last_assistant_message ?? ''),
+                'last_assistant_message' => (string) ($lastAssistantMessages[$conversationId] ?? ''),
             ];
         })->values()->all();
 
@@ -425,6 +418,35 @@ class UnifiedChatService
             'total' => $total,
             'conversations' => $conversations,
         ];
+    }
+
+    /**
+     * @param  array<int,int>  $conversationIds
+     * @return array<int,string>
+     */
+    private function fetchLastAssistantMessages($connection, array $conversationIds): array
+    {
+        if ($conversationIds === []) {
+            return [];
+        }
+
+        $messageRows = $connection->table('ai_messages')
+            ->select(['ai_conversation_id', 'content'])
+            ->where('role', 'assistant')
+            ->whereIn('ai_conversation_id', $conversationIds)
+            ->orderByDesc('id')
+            ->get();
+
+        $lastMessages = [];
+        foreach ($messageRows as $row) {
+            $conversationId = (int) ($row->ai_conversation_id ?? 0);
+            if ($conversationId <= 0 || isset($lastMessages[$conversationId])) {
+                continue;
+            }
+            $lastMessages[$conversationId] = (string) ($row->content ?? '');
+        }
+
+        return $lastMessages;
     }
 
     /**
@@ -720,7 +742,7 @@ class UnifiedChatService
         int $latencyMs,
         ?string $errorMessage
     ): void {
-        RequestLog::query()->create([
+        $entry = [
             'tenant_id' => $tenantId,
             'api_key_id' => $apiKeyId,
             'provider' => $provider,
@@ -734,7 +756,17 @@ class UnifiedChatService
             'request_payload' => $payload,
             'response_payload' => $response,
             'error_message' => $errorMessage,
-        ]);
+        ];
+
+        if (! (bool) config('ai.buffer_request_logs_to_redis', true)) {
+            RequestLog::query()->create($entry);
+            return;
+        }
+
+        $bufferKey = 'ai:reqlog:'.Str::uuid();
+        $ttlSeconds = max(60, (int) config('ai.request_log_buffer_ttl_seconds', 600));
+        Cache::put($bufferKey, $entry, now()->addSeconds($ttlSeconds));
+        SyncBufferedRequestLogJob::dispatch($bufferKey)->onQueue('ai-sync');
     }
 
     private function storeUsage(int $tenantId, int $tokens): void
