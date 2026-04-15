@@ -14,6 +14,8 @@ Route::prefix('v1')
         Route::get('/usage', [ChatController::class, 'usage']);
         Route::get('/models', [ChatController::class, 'models']);
         Route::get('/settings/overview', [SettingsController::class, 'overview']);
+        Route::put('/settings/profile', [SettingsController::class, 'updateProfile']);
+        Route::patch('/settings/profile', [SettingsController::class, 'updateProfile']);
         Route::get('/provider-keys', [SettingsController::class, 'providerKeys']);
         Route::post('/provider-keys', [SettingsController::class, 'storeProviderKey']);
         Route::put('/settings/password', [SettingsController::class, 'updatePassword']);

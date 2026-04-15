@@ -1,120 +1,194 @@
 <template>
-    <div class="grid min-h-[80vh] gap-4 lg:grid-cols-[1fr_1fr]">
-        <section class="rounded-2xl border border-zinc-800/80 bg-linear-to-b from-zinc-900/90 to-zinc-950/90 p-5 shadow-xl shadow-black/30">
-            <h2 class="text-lg font-semibold text-white">Account Settings</h2>
-            <p class="mt-1 text-sm text-zinc-400">Manage your API credentials and account usage.</p>
-
-            <div class="mt-5 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <h3 class="text-sm font-semibold text-zinc-200">Authenticated User</h3>
-                <div v-if="overview.auth_user_display?.avatar" class="pb-1">
-                    <img
-                        :src="overview.auth_user_display.avatar"
-                        alt="Profile"
-                        class="h-14 w-14 rounded-full border border-zinc-700 object-cover"
+    <div class="min-h-[calc(100vh-96px)] bg-[#212121] text-zinc-100">
+        <div class="mx-auto grid w-full max-w-6xl gap-4 py-5 lg:grid-cols-[220px_1fr]">
+            <aside class="h-fit rounded-2xl border border-zinc-800 bg-[#171717] p-3 lg:sticky lg:top-5">
+                <p class="px-2 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Settings</p>
+                <nav class="space-y-1">
+                    <button
+                        v-for="item in menuItems"
+                        :key="item.id"
+                        class="w-full rounded-lg px-3 py-2 text-left text-sm transition"
+                        :class="activeSection === item.id
+                            ? 'bg-zinc-800 text-white'
+                            : 'text-zinc-300 hover:bg-zinc-800/70'"
+                        type="button"
+                        @click="scrollToSection(item.id)"
                     >
+                        {{ item.label }}
+                    </button>
+                </nav>
+            </aside>
+
+            <section class="space-y-4">
+                <div id="settings-section-general" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <img
+                            v-if="displayUser.avatar"
+                            :src="displayUser.avatar"
+                            alt="Profile"
+                            class="h-14 w-14 rounded-full border border-zinc-700 object-cover"
+                        >
+                        <div>
+                            <p class="text-lg font-semibold text-white">{{ displayUser.name || 'User' }}</p>
+                            <p class="text-sm text-zinc-400">{{ displayUser.email || 'No email available' }}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 grid gap-3 text-sm text-zinc-300 sm:grid-cols-2">
+                        <p><span class="text-zinc-500">Tenant ID:</span> {{ overview.tenant_id ?? '-' }}</p>
+                        <p><span class="text-zinc-500">Role:</span> {{ displayUser.role ?? '-' }}</p>
+                        <p><span class="text-zinc-500">Phone:</span> {{ displayUser.phone ?? '-' }}</p>
+                        <p><span class="text-zinc-500">Profile completion:</span> {{ displayUser.completion_percentage ?? 0 }}%</p>
+                    </div>
                 </div>
-                <div class="text-sm text-zinc-300">
-                    <p><span class="text-zinc-500">Tenant ID:</span> {{ overview.tenant_id ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Name:</span> {{ overview.auth_user_display?.name ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Email:</span> {{ overview.auth_user_display?.email ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Phone:</span> {{ overview.auth_user_display?.phone ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Role:</span> {{ overview.auth_user_display?.role ?? '-' }}</p>
-                    <p><span class="text-zinc-500">Profile Completion:</span> {{ overview.auth_user_display?.completion_percentage ?? 0 }}%</p>
+
+                <div id="settings-section-profile" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                    <h2 class="text-base font-semibold text-white">Profile information</h2>
+                    <p class="mt-1 text-sm text-zinc-400">Synced with `api.suganta.com/api/v1/profile`.</p>
+                    <div class="mt-4 grid gap-3 md:grid-cols-2">
+                        <input
+                            v-model="profileForm.name"
+                            type="text"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            placeholder="Full name"
+                        />
+                        <input
+                            v-model="profileForm.phone"
+                            type="text"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            placeholder="Phone"
+                        />
+                        <input
+                            v-model="profileForm.first_name"
+                            type="text"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            placeholder="First name"
+                        />
+                        <input
+                            v-model="profileForm.last_name"
+                            type="text"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            placeholder="Last name"
+                        />
+                    </div>
+                    <div class="mt-3 flex items-center gap-3">
+                        <button
+                            class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
+                            :disabled="profileSaving"
+                            @click="updateProfile"
+                        >
+                            {{ profileSaving ? 'Saving...' : 'Save profile' }}
+                        </button>
+                        <p class="text-xs text-zinc-500">{{ profileStatusText }}</p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <h3 class="text-sm font-semibold text-zinc-200">Usage</h3>
-                <p class="text-sm text-zinc-400">Total Tokens</p>
-                <p class="text-2xl font-semibold text-white">{{ overview.usage?.total_tokens ?? 0 }}</p>
-                <p class="text-xs text-zinc-500">Limit: {{ overview.usage?.token_limit ?? 10000 }}</p>
-                <p class="text-xs text-zinc-500">Remaining: {{ overview.usage?.remaining_tokens ?? 10000 }}</p>
-                <p class="text-xs text-zinc-500">Active Models: {{ overview.active_models_count ?? 0 }}</p>
-            </div>
-        </section>
+                <div class="grid gap-4 xl:grid-cols-2">
+                    <div id="settings-section-usage" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                        <h2 class="text-base font-semibold text-white">Usage</h2>
+                        <p class="mt-1 text-sm text-zinc-400">Token usage and model access overview.</p>
+                        <div class="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+                            <p class="text-sm text-zinc-400">Total tokens</p>
+                            <p class="mt-1 text-3xl font-semibold text-white">{{ overview.usage?.total_tokens ?? 0 }}</p>
+                            <div class="mt-3 space-y-1 text-xs text-zinc-500">
+                                <p>Limit: {{ overview.usage?.token_limit ?? 10000 }}</p>
+                                <p>Remaining: {{ overview.usage?.remaining_tokens ?? 10000 }}</p>
+                                <p>Active models: {{ overview.active_models_count ?? 0 }}</p>
+                            </div>
+                        </div>
+                    </div>
 
-        <section class="rounded-2xl border border-zinc-800/80 bg-linear-to-b from-zinc-900/90 to-zinc-950/90 p-5 shadow-xl shadow-black/30">
-            <h2 class="text-lg font-semibold text-white">Provider API Keys</h2>
-            <p class="mt-1 text-sm text-zinc-400">Save your own provider keys securely (encrypted at rest).</p>
+                    <div id="settings-section-api-keys" class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                        <h2 class="text-base font-semibold text-white">Provider API keys</h2>
+                        <p class="mt-1 text-sm text-zinc-400">Store your own provider keys securely.</p>
 
-            <div class="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <label class="text-xs text-zinc-400">Provider</label>
-                <select
-                    v-model="provider"
-                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                >
-                    <option v-for="providerName in providerOptions" :key="providerName" :value="providerName">
-                        {{ providerName }}
-                    </option>
-                </select>
+                        <div class="mt-4 space-y-3">
+                            <label class="text-xs text-zinc-400">Provider</label>
+                            <select
+                                v-model="provider"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                            >
+                                <option v-for="providerName in providerOptions" :key="providerName" :value="providerName">
+                                    {{ providerName }}
+                                </option>
+                            </select>
 
-                <label class="text-xs text-zinc-400">API Key</label>
-                <input
-                    v-model="providerApiKey"
-                    type="password"
-                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    placeholder="Paste provider API key"
-                />
+                            <label class="text-xs text-zinc-400">API key</label>
+                            <input
+                                v-model="providerApiKey"
+                                type="password"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="Paste provider API key"
+                            />
 
-                <button
-                    class="w-full rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white disabled:opacity-60"
-                    :disabled="saving || !provider || !providerApiKey.trim()"
-                    @click="saveProviderKey"
-                >
-                    {{ saving ? 'Saving...' : 'Save Key' }}
-                </button>
-                <p class="text-xs text-zinc-500">{{ statusText }}</p>
-            </div>
-
-            <div class="mt-4 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <h3 class="text-sm font-semibold text-zinc-200">Saved Key Status</h3>
-                <div
-                    v-for="item in providerKeys"
-                    :key="item.provider"
-                    class="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs"
-                >
-                    <span class="text-zinc-300">{{ item.provider }}</span>
-                    <span :class="item.has_custom_key ? 'text-emerald-400' : 'text-zinc-500'">
-                        {{ item.has_custom_key ? 'Saved' : 'Not set' }}
-                    </span>
+                            <button
+                                class="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
+                                :disabled="saving || !provider || !providerApiKey.trim()"
+                                @click="saveProviderKey"
+                            >
+                                {{ saving ? 'Saving...' : 'Save key' }}
+                            </button>
+                            <p class="text-xs text-zinc-500">{{ statusText }}</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="mt-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <h3 class="text-sm font-semibold text-zinc-200">Update Password</h3>
-                <input
-                    v-model="passwordForm.current_password"
-                    type="password"
-                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    placeholder="Current password"
-                />
-                <input
-                    v-model="passwordForm.password"
-                    type="password"
-                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    placeholder="New password"
-                />
-                <input
-                    v-model="passwordForm.password_confirmation"
-                    type="password"
-                    class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                    placeholder="Confirm new password"
-                />
-                <button
-                    class="w-full rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white disabled:opacity-60"
-                    :disabled="passwordSaving || !canUpdatePassword"
-                    @click="updatePassword"
-                >
-                    {{ passwordSaving ? 'Updating...' : 'Update Password' }}
-                </button>
-                <p class="text-xs text-zinc-500">{{ passwordStatusText }}</p>
-            </div>
-        </section>
+                <div id="settings-section-security" class="grid gap-4 xl:grid-cols-2">
+                    <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                        <h2 class="text-base font-semibold text-white">Saved key status</h2>
+                        <div class="mt-3 space-y-2">
+                            <div
+                                v-for="item in providerKeys"
+                                :key="item.provider"
+                                class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm"
+                            >
+                                <span class="text-zinc-300">{{ item.provider }}</span>
+                                <span :class="item.has_custom_key ? 'text-emerald-400' : 'text-zinc-500'">
+                                    {{ item.has_custom_key ? 'Saved' : 'Not set' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-zinc-800 bg-[#171717] p-5">
+                        <h2 class="text-base font-semibold text-white">Update password</h2>
+                        <p class="mt-1 text-sm text-zinc-400">Use a strong password with at least 8 characters.</p>
+                        <div class="mt-4 space-y-3">
+                            <input
+                                v-model="passwordForm.current_password"
+                                type="password"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="Current password"
+                            />
+                            <input
+                                v-model="passwordForm.password"
+                                type="password"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="New password"
+                            />
+                            <input
+                                v-model="passwordForm.password_confirmation"
+                                type="password"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+                                placeholder="Confirm new password"
+                            />
+                            <button
+                                class="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
+                                :disabled="passwordSaving || !canUpdatePassword"
+                                @click="updatePassword"
+                            >
+                                {{ passwordSaving ? 'Updating...' : 'Update password' }}
+                            </button>
+                            <p class="text-xs text-zinc-500">{{ passwordStatusText }}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 const overview = ref({});
 const providerKeys = ref([]);
@@ -122,25 +196,80 @@ const provider = ref('');
 const providerApiKey = ref('');
 const saving = ref(false);
 const statusText = ref('Ready');
+const activeSection = ref('general');
+const profileSaving = ref(false);
+const profileStatusText = ref('Edit and save profile information.');
 const passwordSaving = ref(false);
 const passwordStatusText = ref('Password strength: min 8 chars, include mix of character types.');
+const profileForm = ref({
+    name: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+});
 const passwordForm = ref({
     current_password: '',
     password: '',
     password_confirmation: '',
 });
 
-const providerOptions = computed(() => {
-    return (providerKeys.value ?? []).map((item) => item.provider);
+const menuItems = [
+    { id: 'general', label: 'General' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'usage', label: 'Usage' },
+    { id: 'api-keys', label: 'API Keys' },
+    { id: 'security', label: 'Security' },
+];
+
+const displayUser = computed(() => {
+    const direct = overview.value?.auth_user_display ?? {};
+    const authUser = overview.value?.auth_user ?? {};
+    const profileRoot = overview.value?.profile ?? {};
+    const profileUser = profileRoot?.user ?? {};
+    const profileDetails = profileRoot?.profile ?? {};
+
+    const firstName = (authUser.first_name ?? profileDetails.first_name ?? '').toString().trim();
+    const lastName = (authUser.last_name ?? profileDetails.last_name ?? '').toString().trim();
+    const derivedName = `${firstName} ${lastName}`.trim();
+
+    return {
+        id: direct.id ?? authUser.id ?? authUser.user_id ?? profileUser.id ?? null,
+        name: direct.name ?? authUser.name ?? profileUser.name ?? (derivedName || null),
+        email: direct.email ?? authUser.email ?? profileUser.email ?? null,
+        phone: direct.phone
+            ?? authUser.phone
+            ?? profileDetails.phone_primary
+            ?? profileDetails.principal_phone
+            ?? profileDetails.parent_phone
+            ?? profileDetails.phone_secondary
+            ?? null,
+        role: direct.role ?? authUser.role ?? profileUser.role ?? null,
+        avatar: direct.avatar ?? profileRoot.profile_image_url ?? authUser.avatar ?? authUser.profile_image ?? null,
+        completion_percentage: Number(direct.completion_percentage ?? profileRoot.completion_percentage ?? 0),
+    };
 });
 
+const providerOptions = computed(() => (providerKeys.value ?? []).map((item) => item.provider));
+
 const canUpdatePassword = computed(() => {
-    return Boolean(
-        passwordForm.value.current_password &&
-        passwordForm.value.password &&
-        passwordForm.value.password_confirmation
-    );
+    return Boolean(passwordForm.value.current_password && passwordForm.value.password && passwordForm.value.password_confirmation);
 });
+
+async function parseApiResponse(response) {
+    const rawText = await response.text();
+    if (rawText.trim() === '') {
+        return {};
+    }
+
+    try {
+        return JSON.parse(rawText);
+    } catch {
+        if (response.ok) {
+            return { message: rawText };
+        }
+        throw new Error(rawText || `Request failed: ${response.status}`);
+    }
+}
 
 async function apiRequest(path, options = {}) {
     const response = await fetch(path, {
@@ -153,20 +282,48 @@ async function apiRequest(path, options = {}) {
         },
     });
 
+    const data = await parseApiResponse(response);
     if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || `Request failed: ${response.status}`);
+        throw new Error(data?.message || `Request failed: ${response.status}`);
     }
 
-    return response.json();
+    return data;
 }
 
 async function loadOverview() {
     const data = await apiRequest('/api/v1/settings/overview');
     overview.value = data ?? {};
     providerKeys.value = data.provider_keys ?? [];
+    profileForm.value = {
+        name: String(data.profile_form?.name ?? displayUser.value.name ?? ''),
+        first_name: String(data.profile_form?.first_name ?? ''),
+        last_name: String(data.profile_form?.last_name ?? ''),
+        phone: String(data.profile_form?.phone ?? displayUser.value.phone ?? ''),
+    };
     if (!provider.value) {
         provider.value = providerOptions.value[0] ?? '';
+    }
+}
+
+async function updateProfile() {
+    profileSaving.value = true;
+    try {
+        const data = await apiRequest('/api/v1/settings/profile', {
+            method: 'PUT',
+            body: JSON.stringify({
+                name: profileForm.value.name?.trim() || null,
+                first_name: profileForm.value.first_name?.trim() || null,
+                last_name: profileForm.value.last_name?.trim() || null,
+                phone: profileForm.value.phone?.trim() || null,
+                phone_primary: profileForm.value.phone?.trim() || null,
+            }),
+        });
+        profileStatusText.value = data.message || 'Profile updated successfully.';
+        await loadOverview();
+    } catch (error) {
+        profileStatusText.value = error.message || 'Failed to update profile';
+    } finally {
+        profileSaving.value = false;
     }
 }
 
@@ -220,6 +377,40 @@ async function updatePassword() {
     }
 }
 
+function scrollToSection(sectionId) {
+    const element = document.getElementById(`settings-section-${sectionId}`);
+    if (!element) {
+        return;
+    }
+
+    activeSection.value = sectionId;
+    element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+    });
+}
+
+function updateActiveSectionFromViewport() {
+    let bestSectionId = activeSection.value;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const item of menuItems) {
+        const element = document.getElementById(`settings-section-${item.id}`);
+        if (!element) {
+            continue;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const distance = Math.abs(rect.top - 120);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestSectionId = item.id;
+        }
+    }
+
+    activeSection.value = bestSectionId;
+}
+
 onMounted(async () => {
     statusText.value = 'Loading...';
     try {
@@ -228,5 +419,12 @@ onMounted(async () => {
     } catch (error) {
         statusText.value = error.message || 'Failed to load settings';
     }
+
+    window.addEventListener('scroll', updateActiveSectionFromViewport, { passive: true });
+    updateActiveSectionFromViewport();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('scroll', updateActiveSectionFromViewport);
 });
 </script>

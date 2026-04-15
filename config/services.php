@@ -36,6 +36,7 @@ return [
     ],
 
     'suganta_auth' => [
+        'base_url' => env('SUGANTA_AUTH_BASE_URL', 'https://api.suganta.com/api/v1'),
         'user_endpoint' => env('SUGANTA_AUTH_USER_ENDPOINT', 'https://api.suganta.com/api/v1/auth/user'),
         'profile_endpoint' => env('SUGANTA_AUTH_PROFILE_ENDPOINT', 'https://api.suganta.com/api/v1/profile'),
         'profile_password_endpoint' => env('SUGANTA_AUTH_PROFILE_PASSWORD_ENDPOINT', 'https://api.suganta.com/api/v1/profile/password'),

@@ -1,132 +1,145 @@
 <template>
-    <div class="grid min-h-[82vh] gap-0 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 md:grid-cols-[280px_1fr]">
-        <aside class="flex flex-col border-r border-zinc-800 bg-zinc-900/70">
-            <div class="space-y-2 border-b border-zinc-800 p-3">
-                <button
-                    class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
-                    @click="startNewChat"
-                >
-                    + New chat
-                </button>
-                <button
-                    class="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800/60"
-                    type="button"
-                    @click="openSearchModal"
-                >
-                    Search chats
-                </button>
-                <button
-                    class="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800/60"
-                    type="button"
-                >
-                    Explore GPTs
-                </button>
-            </div>
+    <div class="h-screen bg-[#0f0f0f] text-zinc-100">
+        <div class="grid h-full md:grid-cols-[260px_1fr]">
+            <aside class="hidden h-full flex-col border-r border-zinc-800 bg-[#171717] md:flex">
+                <div class="space-y-2 border-b border-zinc-800 p-3">
+                    <button
+                        class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
+                        @click="startNewChat"
+                    >
+                        + New chat
+                    </button>
+                    <button
+                        class="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800"
+                        type="button"
+                        @click="openSearchModal"
+                    >
+                        Search chats
+                    </button>
+                </div>
 
-            <div class="flex-1 space-y-1 overflow-auto p-2" @scroll="handleHistoryScroll">
-                <p class="px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Recent</p>
-                <button
-                    v-for="conversation in conversations"
-                    :key="conversation.id"
-                    class="w-full rounded-lg px-3 py-2 text-left transition"
-                    :class="currentConversationId === conversation.id
-                        ? 'bg-zinc-800 text-white'
-                        : 'text-zinc-300 hover:bg-zinc-800/60'"
-                    @click="openConversation(conversation.id)"
-                >
-                    <p class="truncate text-sm font-medium">{{ conversation.subject || 'Untitled' }}</p>
-                    <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
-                </button>
-                <p v-if="!conversations.length" class="px-3 py-2 text-xs text-zinc-500">No conversations yet.</p>
-                <p v-if="historyLoading" class="px-3 py-2 text-xs text-zinc-500">Loading history...</p>
-                <p v-else-if="!historyHasMore && conversations.length" class="px-3 py-2 text-xs text-zinc-600">
-                    No more chats
-                </p>
-            </div>
-        </aside>
+                <div class="flex-1 overflow-auto px-2 py-2" @scroll="handleHistoryScroll">
+                    <p class="px-2 py-1 text-[11px] uppercase tracking-wide text-zinc-500">Recent chats</p>
 
-        <section class="relative flex min-h-[82vh] flex-col bg-zinc-950">
-            <div class="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
-                <select
-                    v-model="model"
-                    class="max-w-[280px] rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                >
-                    <option v-for="item in modelOptions" :key="item.model" :value="item.model">
-                        {{ item.display_name }}
-                    </option>
-                </select>
-                <select
-                    v-model="capabilityFilter"
-                    class="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
-                >
-                    <option value="all">All</option>
-                    <option value="vision">Vision</option>
-                    <option value="reasoning">Reasoning</option>
-                    <option value="web_search">Web Search</option>
-                    <option value="tools">Tools</option>
-                </select>
-                <div class="ml-auto text-xs text-zinc-500">
+                    <button
+                        v-for="conversation in conversations"
+                        :key="conversation.id"
+                        class="mb-1 w-full rounded-lg px-3 py-2 text-left text-sm transition"
+                        :class="currentConversationId === conversation.id
+                            ? 'bg-zinc-800 text-white'
+                            : 'text-zinc-300 hover:bg-zinc-800/70'"
+                        @click="openConversation(conversation.id)"
+                    >
+                        <p class="truncate font-medium">{{ conversation.subject || 'Untitled chat' }}</p>
+                        <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
+                    </button>
+
+                    <p v-if="!conversations.length" class="px-3 py-2 text-xs text-zinc-500">No conversations yet.</p>
+                    <p v-if="historyLoading" class="px-3 py-2 text-xs text-zinc-500">Loading history...</p>
+                    <p v-else-if="!historyHasMore && conversations.length" class="px-3 py-2 text-xs text-zinc-600">
+                        No more chats
+                    </p>
+                </div>
+
+                <div class="border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
                     {{ usage.total_tokens ?? 0 }} / {{ usage.token_limit ?? 10000 }} tokens
                 </div>
-            </div>
+            </aside>
 
-            <div class="flex-1 overflow-auto px-4 py-5">
-                <div v-if="messages.length" class="mx-auto w-full max-w-3xl space-y-4">
-                    <div
-                        v-for="(message, index) in messages"
-                        :key="`${message.role}-${index}`"
-                        class="rounded-xl px-4 py-3 text-sm"
-                        :class="message.role === 'user'
-                            ? 'ml-auto max-w-[85%] bg-zinc-200 text-zinc-900'
-                            : 'max-w-[92%] bg-zinc-900 text-zinc-100'"
+            <section class="flex h-full min-h-0 flex-col bg-[#212121]">
+                <div class="flex items-center gap-2 border-b border-zinc-800 px-4 py-3">
+                    <button
+                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
+                        @click="openSearchModal"
                     >
-                        <p class="mb-1 text-[10px] uppercase tracking-wide opacity-70">{{ message.role }}</p>
-                        <p class="whitespace-pre-wrap">{{ message.content }}</p>
-                    </div>
+                        Search
+                    </button>
+                    <select
+                        v-model="model"
+                        class="max-w-[260px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                    >
+                        <option v-for="item in modelOptions" :key="item.model" :value="item.model">
+                            {{ item.display_name }}
+                        </option>
+                    </select>
+                    <select
+                        v-model="capabilityFilter"
+                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                    >
+                        <option value="all">All</option>
+                        <option value="vision">Vision</option>
+                        <option value="reasoning">Reasoning</option>
+                        <option value="web_search">Web search</option>
+                        <option value="tools">Tools</option>
+                    </select>
+                    <p class="ml-auto text-xs text-zinc-500">{{ statusText }}</p>
                 </div>
 
-                <div v-else class="flex h-full items-center justify-center">
-                    <div class="w-full max-w-2xl text-center">
-                        <p class="mb-6 text-3xl font-medium text-zinc-200">Where should we begin?</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="border-t border-zinc-800 bg-zinc-950/95 p-4">
-                <div class="mx-auto w-full max-w-3xl">
-                    <div class="rounded-2xl border border-zinc-700 bg-zinc-900 px-3 py-2">
-                        <textarea
-                            v-model="inputMessage"
-                            rows="2"
-                            class="w-full resize-none bg-transparent text-sm text-zinc-100 outline-none"
-                            placeholder="Ask anything..."
-                        />
-                        <div class="mt-2 flex items-center justify-between">
-                            <p class="text-xs text-zinc-500">{{ statusText }}</p>
-                            <button
-                                class="rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-60"
-                                :disabled="sending || !inputMessage.trim()"
-                                @click="sendMessage"
+                <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-auto">
+                    <div v-if="messages.length" class="mx-auto w-full max-w-3xl px-4 py-8">
+                        <div
+                            v-for="(message, index) in messages"
+                            :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
+                            class="mb-6"
+                        >
+                            <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                                {{ message.role === 'user' ? 'You' : 'Assistant' }}
+                            </div>
+                            <div
+                                class="whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6"
+                                :class="message.role === 'user'
+                                    ? 'ml-auto max-w-[86%] bg-zinc-700/70 text-zinc-100'
+                                    : 'max-w-full bg-zinc-900/70 text-zinc-100'"
                             >
-                                {{ sending ? 'Sending...' : 'Send' }}
-                            </button>
+                                {{ message.content }}
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="flex h-full items-center justify-center px-5">
+                        <div class="w-full max-w-3xl text-center">
+                            <p class="text-3xl font-medium text-zinc-200">How can I help you today?</p>
+                            <p class="mt-3 text-sm text-zinc-500">Start a new conversation and ask anything.</p>
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
+
+                <div class="border-t border-zinc-800 bg-[#212121] px-4 py-4">
+                    <div class="mx-auto w-full max-w-3xl">
+                        <div class="rounded-3xl border border-zinc-700 bg-zinc-900 px-4 py-3">
+                            <textarea
+                                v-model="inputMessage"
+                                rows="1"
+                                class="max-h-52 w-full resize-y bg-transparent text-sm text-zinc-100 outline-none"
+                                placeholder="Message SuGanta AI..."
+                                @keydown.enter.exact.prevent="sendMessage"
+                            />
+                            <div class="mt-3 flex items-center justify-between">
+                                <p class="text-xs text-zinc-500">Enter to send</p>
+                                <button
+                                    class="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    :disabled="sending || !inputMessage.trim()"
+                                    @click="sendMessage"
+                                >
+                                    {{ sending ? 'Sending...' : 'Send' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
 
         <div
             v-if="searchModalOpen"
-            class="fixed inset-0 z-40 flex items-start justify-center bg-black/70 px-4 pt-20"
+            class="fixed inset-0 z-50 flex items-start justify-center bg-black/70 px-4 pt-20"
             @click.self="closeSearchModal"
         >
-            <div class="w-full max-w-2xl rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div class="w-full max-w-2xl rounded-2xl border border-zinc-700 bg-[#1f1f1f] shadow-2xl">
                 <div class="border-b border-zinc-700 p-4">
                     <input
                         v-model="searchQuery"
                         type="text"
-                        class="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-zinc-500"
+                        class="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-zinc-500"
                         placeholder="Search chat history..."
                         @keydown.esc="closeSearchModal"
                     />
@@ -137,10 +150,10 @@
                     <button
                         v-for="conversation in filteredConversations"
                         :key="`search-${conversation.id}`"
-                        class="w-full rounded-lg px-3 py-2 text-left text-zinc-300 hover:bg-zinc-800/60"
+                        class="mb-1 w-full rounded-lg px-3 py-2 text-left text-zinc-300 hover:bg-zinc-800/60"
                         @click="openConversationFromSearch(conversation.id)"
                     >
-                        <p class="truncate text-sm font-medium text-zinc-100">{{ conversation.subject || 'Untitled' }}</p>
+                        <p class="truncate text-sm font-medium text-zinc-100">{{ conversation.subject || 'Untitled chat' }}</p>
                         <p class="mt-1 truncate text-xs text-zinc-500">{{ conversation.last_assistant_message || 'No reply yet' }}</p>
                     </button>
                     <p v-if="!searchLoading && !searchError && !searchQuery.trim()" class="px-3 py-3 text-sm text-zinc-500">
@@ -156,16 +169,18 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
+const messageContainerRef = ref(null);
 
 const conversations = ref([]);
 const messages = ref([]);
 const usage = ref({ total_tokens: 0, recent_requests: [] });
 const models = ref([]);
+
 const searchQuery = ref('');
 const searchModalOpen = ref(false);
 const searchResults = ref([]);
@@ -190,7 +205,6 @@ const modelOptions = computed(() => {
     if (capabilityFilter.value === 'all') {
         return models.value;
     }
-
     if (capabilityFilter.value === 'vision') {
         return models.value.filter((item) => item.supports_vision === true);
     }
@@ -203,13 +217,10 @@ const modelOptions = computed(() => {
     if (capabilityFilter.value === 'tools') {
         return models.value.filter((item) => item.supports_tools === true);
     }
-
     return models.value;
 });
 
-const filteredConversations = computed(() => {
-    return searchResults.value;
-});
+const filteredConversations = computed(() => searchResults.value);
 
 watch([capabilityFilter, models], () => {
     if (!modelOptions.value.some((item) => item.model === model.value)) {
@@ -217,26 +228,72 @@ watch([capabilityFilter, models], () => {
     }
 });
 
-const apiHeaders = computed(() => {
-    return { Accept: 'application/json', 'Content-Type': 'application/json' };
-});
+async function parseApiResponse(response) {
+    const rawText = await response.text();
+    if (rawText.trim() === '') {
+        return {};
+    }
+
+    try {
+        return JSON.parse(rawText);
+    } catch {
+        if (response.ok) {
+            return { message: rawText };
+        }
+        throw new Error(rawText || `Request failed: ${response.status}`);
+    }
+}
 
 async function apiRequest(path, options = {}) {
     const response = await fetch(path, {
         credentials: 'include',
         ...options,
         headers: {
-            ...apiHeaders.value,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
             ...(options.headers ?? {}),
         },
     });
 
+    const data = await parseApiResponse(response);
     if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || `Request failed: ${response.status}`);
+        throw new Error(data?.message || `Request failed: ${response.status}`);
     }
 
-    return response.json();
+    return data;
+}
+
+function parseConversationId(value) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return null;
+    }
+    return parsed;
+}
+
+async function syncConversationRoute(conversationId) {
+    const parsed = parseConversationId(conversationId);
+    if (parsed === null) {
+        if (route.name !== 'chat.home') {
+            await router.push({ name: 'chat.home' });
+        }
+        return;
+    }
+
+    if (route.name === 'chat.conversation' && parseConversationId(route.params.conversationId) === parsed) {
+        return;
+    }
+
+    await router.push({ name: 'chat.conversation', params: { conversationId: String(parsed) } });
+}
+
+async function scrollMessagesToBottom() {
+    await nextTick();
+    const el = messageContainerRef.value;
+    if (!el) {
+        return;
+    }
+    el.scrollTop = el.scrollHeight;
 }
 
 async function loadBootstrapData() {
@@ -254,40 +311,10 @@ async function loadBootstrapData() {
         if (first) {
             model.value = first.model;
         }
-
         statusText.value = 'Ready';
     } catch (error) {
         statusText.value = error.message || 'Failed to load data';
     }
-}
-
-function parseConversationId(value) {
-    const parsed = Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-        return null;
-    }
-
-    return parsed;
-}
-
-async function syncConversationRoute(conversationId) {
-    const parsed = parseConversationId(conversationId);
-    if (parsed === null) {
-        if (route.name !== 'chat.home') {
-            await router.push({ name: 'chat.home' });
-        }
-
-        return;
-    }
-
-    if (route.name === 'chat.conversation' && parseConversationId(route.params.conversationId) === parsed) {
-        return;
-    }
-
-    await router.push({
-        name: 'chat.conversation',
-        params: { conversationId: String(parsed) },
-    });
 }
 
 async function openConversation(conversationId, syncRoute = true) {
@@ -308,6 +335,7 @@ async function openConversation(conversationId, syncRoute = true) {
             await syncConversationRoute(parsedConversationId);
         }
         statusText.value = 'Conversation loaded';
+        await scrollMessagesToBottom();
     } catch (error) {
         statusText.value = error.message || 'Failed to load conversation';
     }
@@ -383,6 +411,7 @@ async function sendMessage() {
     inputMessage.value = '';
     sending.value = true;
     statusText.value = 'Sending...';
+    await scrollMessagesToBottom();
 
     try {
         const payload = {
@@ -408,6 +437,7 @@ async function sendMessage() {
         messages.value = [...nextMessages, { role: 'assistant', content: data.message ?? '' }];
         await Promise.all([loadConversationList(), loadUsage()]);
         statusText.value = 'Response received';
+        await scrollMessagesToBottom();
     } catch (error) {
         statusText.value = error.message || 'Failed to send message';
     } finally {
@@ -521,7 +551,6 @@ watch(
                 messages.value = [];
                 statusText.value = 'Ready';
             }
-
             return;
         }
 
