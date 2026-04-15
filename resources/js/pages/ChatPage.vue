@@ -136,7 +136,17 @@
                                     ? 'ml-auto max-w-[86%] bg-zinc-700/70 text-zinc-100'
                                     : 'max-w-full bg-zinc-900/70 text-zinc-100'"
                             >
-                                {{ message.content }}
+                                <div v-if="message.processing" class="flex items-center gap-2 text-zinc-300">
+                                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400"></span>
+                                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:140ms]"></span>
+                                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:280ms]"></span>
+                                    <span class="ml-1 text-xs text-zinc-400">AI is processing...</span>
+                                </div>
+                                <div
+                                    v-else
+                                    class="space-y-2 wrap-break-word"
+                                    v-html="formatMessageContent(message.content)"
+                                ></div>
                             </div>
                             <div
                                 v-if="message.attachments?.length"
@@ -179,43 +189,17 @@
 
                 <div class="shrink-0 border-t border-zinc-800 bg-[#212121] px-4 py-4">
                     <div class="mx-auto w-full max-w-3xl">
-                        <div
-                            v-if="currentConversationId && (assetsLoading || conversationAssets.length)"
-                            class="mb-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3"
-                        >
-                            <div class="mb-2 flex items-center justify-between">
-                                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-400">Conversation uploads</p>
-                                <p v-if="assetsLoading" class="text-xs text-zinc-500">Loading...</p>
-                            </div>
-                            <div class="space-y-2">
-                                <div
-                                    v-for="asset in conversationAssets"
-                                    :key="asset.id"
-                                    class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1.5"
-                                >
-                                    <div class="min-w-0">
-                                        <p class="truncate text-xs font-medium text-zinc-200">{{ asset.name }}</p>
-                                        <p class="truncate text-[11px] text-zinc-500">{{ asset.mime_type || asset.attachment_type }}</p>
-                                    </div>
-                                    <div class="ml-3 flex items-center gap-1">
-                                        <button
-                                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
-                                            :disabled="assetActionLoadingId === asset.id"
-                                            @click="openAsset(asset, false)"
-                                        >
-                                            Preview
-                                        </button>
-                                        <button
-                                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
-                                            :disabled="assetActionLoadingId === asset.id"
-                                            @click="openAsset(asset, true)"
-                                        >
-                                            Download
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <ConversationUploadsModal
+                            :open="uploadsModalOpen"
+                            :can-open="Boolean(currentConversationId)"
+                            :loading="assetsLoading"
+                            :assets="conversationAssets"
+                            :asset-action-loading-id="assetActionLoadingId"
+                            @open="uploadsModalOpen = true"
+                            @close="uploadsModalOpen = false"
+                            @preview="openAsset($event, false)"
+                            @download="openAsset($event, true)"
+                        />
                         <div
                             v-if="chatErrorMessage"
                             class="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
@@ -338,6 +322,7 @@
             @update:query="searchQuery = $event"
             @open-conversation="openConversationFromSearch"
         />
+
     </div>
 </template>
 
@@ -348,6 +333,7 @@ import { showErrorAlert } from '../utils/alerts';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
 import ChatSearchModal from '../components/chat/ChatSearchModal.vue';
+import ConversationUploadsModal from '../components/chat/ConversationUploadsModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -382,6 +368,7 @@ const chatErrorMessage = ref('');
 const conversationAssets = ref([]);
 const assetsLoading = ref(false);
 const assetActionLoadingId = ref(null);
+const uploadsModalOpen = ref(false);
 const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyHasMore = ref(true);
@@ -471,6 +458,63 @@ async function parseApiResponse(response) {
         }
         throw new Error(rawText || `Request failed: ${response.status}`);
     }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatInlineMarkup(value) {
+    return String(value ?? '')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-zinc-100">$1</code>');
+}
+
+function formatMessageContent(content) {
+    const escaped = escapeHtml(content).replace(/\r\n/g, '\n').trim();
+    if (escaped === '') {
+        return '';
+    }
+
+    const blocks = escaped.split(/\n{2,}/);
+    const htmlBlocks = blocks.map((block) => {
+        const lines = block.split('\n').map((line) => line.trim()).filter((line) => line !== '');
+        if (lines.length === 0) {
+            return '';
+        }
+
+        const bulletPattern = /^[-*•]\s+/;
+        const numberedPattern = /^\d+\.\s+/;
+        if (lines.every((line) => bulletPattern.test(line))) {
+            const items = lines
+                .map((line) => `<li>${formatInlineMarkup(line.replace(bulletPattern, ''))}</li>`)
+                .join('');
+            return `<ul class="list-disc space-y-1 pl-5">${items}</ul>`;
+        }
+        if (lines.every((line) => numberedPattern.test(line))) {
+            const items = lines
+                .map((line) => `<li>${formatInlineMarkup(line.replace(numberedPattern, ''))}</li>`)
+                .join('');
+            return `<ol class="list-decimal space-y-1 pl-5">${items}</ol>`;
+        }
+
+        const renderedLines = lines.map((line) => {
+            const heading = line.match(/^#{1,3}\s+(.+)$/);
+            if (heading) {
+                return `<p class="font-semibold text-zinc-100">${formatInlineMarkup(heading[1])}</p>`;
+            }
+            return `<p>${formatInlineMarkup(line)}</p>`;
+        }).join('');
+
+        return `<div class="space-y-1">${renderedLines}</div>`;
+    }).filter((block) => block !== '');
+
+    return htmlBlocks.join('');
 }
 
 async function apiRequest(path, options = {}) {
@@ -585,6 +629,7 @@ async function openConversation(conversationId, syncRoute = true) {
             role: item.role,
             content: item.content,
             attachments: [],
+            processing: false,
         }));
         if (syncRoute) {
             await syncConversationRoute(parsedConversationId);
@@ -607,6 +652,7 @@ async function startNewChat() {
     currentConversationId.value = null;
     messages.value = [];
     conversationAssets.value = [];
+    uploadsModalOpen.value = false;
     inputMessage.value = '';
     chatErrorMessage.value = '';
     await syncConversationRoute(null);
@@ -697,8 +743,14 @@ async function sendMessage() {
         role: 'user',
         content: composedUserText,
         attachments: currentAttachments,
+        processing: false,
     }];
-    messages.value = nextMessages;
+    messages.value = [...nextMessages, {
+        role: 'assistant',
+        content: '',
+        attachments: [],
+        processing: true,
+    }];
     inputMessage.value = '';
     attachments.value = [];
     sending.value = true;
@@ -735,12 +787,18 @@ async function sendMessage() {
             await loadConversationAssets(data.conversation_id);
         }
 
-        messages.value = [...nextMessages, { role: 'assistant', content: data.message ?? '' }];
+        messages.value = [...nextMessages, {
+            role: 'assistant',
+            content: data.message ?? '',
+            attachments: [],
+            processing: false,
+        }];
         await Promise.all([loadConversationList(), loadUsage()]);
         statusText.value = 'Response received';
         chatErrorMessage.value = '';
         await scrollMessagesToBottom();
     } catch (error) {
+        messages.value = nextMessages;
         chatErrorMessage.value = error.message || 'Unable to process chat request at this time.';
         modelErrorMessage.value = String(error.message || '').toLowerCase().includes('model')
             ? (error.message || 'Model error. Please choose another model and try again.')
@@ -1004,6 +1062,7 @@ async function loadSharedConversation(shareToken) {
     currentConversationId.value = null;
     conversations.value = [];
     conversationAssets.value = [];
+    uploadsModalOpen.value = false;
     attachments.value = [];
     statusText.value = 'Loading shared conversation...';
     chatErrorMessage.value = '';
@@ -1019,6 +1078,7 @@ async function loadSharedConversation(shareToken) {
             role: item.role,
             content: item.content,
             attachments: [],
+            processing: false,
         }));
         if (data.conversation?.model) {
             model.value = String(data.conversation.model);
