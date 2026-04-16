@@ -75,9 +75,14 @@
 
             <div
                 v-if="compareMode && !hideComparePicker"
-                class="rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2"
+                ref="comparePanelRef"
+                class="space-y-2"
             >
-                <div class="flex flex-wrap items-center gap-2">
+                <div
+                    class="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2 transition hover:border-zinc-700"
+                    @click="openComparePicker"
+                >
+                    <div class="flex flex-wrap items-center gap-2">
                     <p class="text-xs font-medium text-zinc-300">
                         Compare mode active
                     </p>
@@ -93,19 +98,31 @@
                     <button
                         type="button"
                         class="ml-auto rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800"
-                        @click="comparePickerExpanded = !comparePickerExpanded"
+                        @click.stop="comparePickerExpanded = !comparePickerExpanded"
                     >
                         {{ comparePickerExpanded ? 'Hide settings' : 'Configure models' }}
                     </button>
                 </div>
+                    <p class="mt-2 text-[11px] text-zinc-500">
+                        Click here to {{ comparePickerExpanded ? 'keep it open and edit models' : 'open model settings' }}.
+                    </p>
+                </div>
+                <Transition
+                    enter-active-class="transition duration-200 ease-out"
+                    enter-from-class="translate-y-1 scale-[0.99] opacity-0"
+                    enter-to-class="translate-y-0 scale-100 opacity-100"
+                    leave-active-class="transition duration-150 ease-in"
+                    leave-from-class="translate-y-0 scale-100 opacity-100"
+                    leave-to-class="translate-y-1 scale-[0.99] opacity-0"
+                >
+                    <CompareModelPicker
+                        v-if="comparePickerExpanded"
+                        :compare-models="compareModels"
+                        :model-options="modelOptions"
+                        @update:compare-models="$emit('update:compareModels', $event)"
+                    />
+                </Transition>
             </div>
-
-            <CompareModelPicker
-                v-if="compareMode && !hideComparePicker && comparePickerExpanded"
-                :compare-models="compareModels"
-                :model-options="modelOptions"
-                @update:compare-models="$emit('update:compareModels', $event)"
-            />
             <div
                 v-else-if="compareMode && hideComparePicker"
                 class="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-400"
@@ -128,7 +145,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import CompareModelPicker from './CompareModelPicker.vue';
 
 const props = defineProps({
@@ -158,6 +175,7 @@ const emit = defineEmits([
 ]);
 
 const comparePickerExpanded = ref(false);
+const comparePanelRef = ref(null);
 const compareModelsCount = computed(() => (
     Array.isArray(props.compareModels)
         ? props.compareModels.filter((item) => String(item || '').trim() !== '').length
@@ -173,4 +191,44 @@ watch(() => props.compareMode, (enabled) => {
     // Auto-open config when compare mode has less than 2 models selected.
     comparePickerExpanded.value = compareModelsCount.value < 2;
 }, { immediate: true });
+
+watch(() => props.hideComparePicker, (hidden) => {
+    if (hidden) {
+        comparePickerExpanded.value = false;
+    }
+});
+
+function openComparePicker() {
+    comparePickerExpanded.value = true;
+}
+
+function handleClickOutsideComparePanel(event) {
+    if (!comparePickerExpanded.value) {
+        return;
+    }
+
+    const panelElement = comparePanelRef.value;
+    if (!panelElement) {
+        return;
+    }
+
+    const target = event.target;
+    if (target instanceof Node && panelElement.contains(target)) {
+        return;
+    }
+
+    comparePickerExpanded.value = false;
+}
+
+onMounted(() => {
+    if (typeof document !== 'undefined') {
+        document.addEventListener('mousedown', handleClickOutsideComparePanel);
+    }
+});
+
+onBeforeUnmount(() => {
+    if (typeof document !== 'undefined') {
+        document.removeEventListener('mousedown', handleClickOutsideComparePanel);
+    }
+});
 </script>
