@@ -69,21 +69,45 @@
             </div>
 
             <div v-if="compareMode" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
-                <div class="mb-2 flex items-center justify-between gap-2">
+                <div class="mb-2 flex flex-wrap items-center gap-2">
                     <p class="text-xs font-medium text-zinc-200">Select models to compare</p>
-                    <button
-                        type="button"
-                        class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
-                        :disabled="selectedCompareModels.length === 0"
-                        @click="$emit('update:compareModels', [])"
-                    >
-                        Clear
-                    </button>
+                    <div class="ml-auto flex flex-wrap gap-1">
+                        <input
+                            v-model="compareSearch"
+                            type="search"
+                            placeholder="Filter models..."
+                            class="h-7 rounded-md border border-zinc-700 bg-zinc-900 px-2 text-[11px] text-zinc-200 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none"
+                        >
+                        <button
+                            type="button"
+                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                            :disabled="filteredCompareOptions.length === 0"
+                            @click="selectTopModels(3)"
+                        >
+                            Top 3
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                            :disabled="filteredCompareOptions.length === 0"
+                            @click="selectAllModels"
+                        >
+                            Select all
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                            :disabled="selectedCompareModels.length === 0"
+                            @click="$emit('update:compareModels', [])"
+                        >
+                            Clear
+                        </button>
+                    </div>
                 </div>
 
                 <div class="max-h-36 space-y-1 overflow-y-auto pr-1">
                     <label
-                        v-for="item in modelOptions"
+                        v-for="item in filteredCompareOptions"
                         :key="`compare-picker-${item.model}`"
                         class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/80"
                     >
@@ -150,6 +174,8 @@ const emit = defineEmits([
     'share',
 ]);
 
+const compareSearch = ref('');
+
 const selectedCompareModels = computed(() => (
     Array.isArray(props.compareModels)
         ? props.compareModels.map((item) => String(item || '')).filter((item) => item !== '')
@@ -164,6 +190,18 @@ const selectedCompareDisplayModels = computed(() => {
     return selectedCompareModels.value
         .map((modelKey) => optionMap.get(modelKey))
         .filter((item) => item && String(item.model || '') !== '');
+});
+
+const filteredCompareOptions = computed(() => {
+    const all = Array.isArray(props.modelOptions) ? props.modelOptions : [];
+    const term = compareSearch.value.trim().toLowerCase();
+    if (term === '') {
+        return all;
+    }
+    return all.filter((item) => {
+        const name = String(item.display_name || item.model || '').toLowerCase();
+        return name.includes(term);
+    });
 });
 
 function toggleCompareModel(modelKey) {
@@ -190,5 +228,24 @@ function removeCompareModel(modelKey) {
     }
 
     emit('update:compareModels', selectedCompareModels.value.filter((item) => item !== normalized));
+}
+
+function selectAllModels() {
+    const all = filteredCompareOptions.value.map((item) => String(item.model || '')).filter((key) => key !== '');
+    emit('update:compareModels', Array.from(new Set(all)));
+}
+
+function selectTopModels(limit) {
+    const max = Number.isFinite(limit) && limit > 0 ? limit : 3;
+    const all = filteredCompareOptions.value
+        .slice(0, max)
+        .map((item) => String(item.model || ''))
+        .filter((key) => key !== '');
+
+    if (all.length === 0) {
+        return;
+    }
+
+    emit('update:compareModels', Array.from(new Set(all)));
 }
 </script>

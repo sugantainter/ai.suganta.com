@@ -1296,6 +1296,13 @@ async function sendMessage() {
         return;
     }
 
+    if (compareMode.value && activeModelKeys.value.length < 2) {
+        modelErrorMessage.value = 'Please select at least 2 models for comparison.';
+        chatErrorMessage.value = '';
+        statusText.value = 'Select at least 2 models';
+        return;
+    }
+
     const currentAttachments = [...attachments.value];
     const attachmentSummary = currentAttachments.length > 0
         ? `\n\nAttachments: ${currentAttachments.map((item) => item.name).join(', ')}`
