@@ -569,6 +569,7 @@ const mobileHistoryOpen = ref(false);
 const SpeechRecognitionCtor = typeof window !== 'undefined'
     ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
     : null;
+const PLAN_UPGRADE_URL = 'https://app.suganta.com/subscriptions?s_type=3';
 const speechSupported = Boolean(SpeechRecognitionCtor);
 const listening = ref(false);
 let recognition = null;
@@ -830,6 +831,11 @@ function toUserFriendlyChatError(error) {
     }
 
     return rawMessage || 'Unable to process chat request at this time.';
+}
+
+function isTokenLimitExceededError(error) {
+    const code = String(error?.code || '').toLowerCase();
+    return code === 'token_limit_exceeded';
 }
 
 function buildRateLimitHint(error) {
@@ -1408,7 +1414,18 @@ async function sendMessage() {
             ? (userFriendlyMessage || 'Model error. Please choose another model and try again.')
             : modelErrorMessage.value;
         statusText.value = userFriendlyMessage || 'Failed to send message';
-        showErrorAlert(chatErrorMessage.value, 'Chat request failed');
+        if (isTokenLimitExceededError(error)) {
+            showErrorAlert(chatErrorMessage.value, 'Chat request failed', {
+                secondaryButtonText: 'Upgrade Your Plan',
+                onSecondaryClick: () => {
+                    if (typeof window !== 'undefined') {
+                        window.location.href = PLAN_UPGRADE_URL;
+                    }
+                },
+            });
+        } else {
+            showErrorAlert(chatErrorMessage.value, 'Chat request failed');
+        }
     } finally {
         asyncModeActive.value = false;
         sending.value = false;

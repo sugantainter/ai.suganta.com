@@ -27,10 +27,13 @@ function loadSweetAlertFromCdn() {
     return swalLoaderPromise;
 }
 
-export async function showErrorAlert(message, title = 'Something went wrong') {
+export async function showErrorAlert(message, title = 'Something went wrong', options = {}) {
     const normalizedMessage = String(message || 'An unexpected error occurred.');
     const signature = `${title}:${normalizedMessage}`;
     const now = Date.now();
+    const secondaryButtonText = String(options?.secondaryButtonText || '').trim();
+    const onSecondaryClick = typeof options?.onSecondaryClick === 'function' ? options.onSecondaryClick : null;
+    const hasSecondaryAction = secondaryButtonText !== '' && onSecondaryClick !== null;
 
     // Prevent rapid duplicate popups for the same error.
     if (lastErrorSignature === signature && now - lastErrorAt < 1200) {
@@ -48,15 +51,22 @@ export async function showErrorAlert(message, title = 'Something went wrong') {
         return;
     }
 
-    await swal.fire({
+    const result = await swal.fire({
         icon: 'error',
         title,
         text: normalizedMessage,
         confirmButtonText: 'OK',
+        showDenyButton: hasSecondaryAction,
+        denyButtonText: hasSecondaryAction ? secondaryButtonText : '',
         background: '#18181b',
         color: '#f4f4f5',
         confirmButtonColor: '#ef4444',
+        denyButtonColor: '#2563eb',
     });
+
+    if (result?.isDenied && onSecondaryClick) {
+        onSecondaryClick();
+    }
 }
 
 export async function showConfirmAlert({
