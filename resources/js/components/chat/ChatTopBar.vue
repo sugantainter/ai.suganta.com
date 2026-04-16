@@ -73,8 +73,35 @@
                 </div>
             </div>
 
-            <CompareModelPicker
+            <div
                 v-if="compareMode && !hideComparePicker"
+                class="rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2"
+            >
+                <div class="flex flex-wrap items-center gap-2">
+                    <p class="text-xs font-medium text-zinc-300">
+                        Compare mode active
+                    </p>
+                    <span class="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] text-blue-200">
+                        {{ compareModelsCount }} model{{ compareModelsCount === 1 ? '' : 's' }} selected
+                    </span>
+                    <span
+                        v-if="compareModelsCount < 2"
+                        class="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-200"
+                    >
+                        Select at least 2 models
+                    </span>
+                    <button
+                        type="button"
+                        class="ml-auto rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800"
+                        @click="comparePickerExpanded = !comparePickerExpanded"
+                    >
+                        {{ comparePickerExpanded ? 'Hide settings' : 'Configure models' }}
+                    </button>
+                </div>
+            </div>
+
+            <CompareModelPicker
+                v-if="compareMode && !hideComparePicker && comparePickerExpanded"
                 :compare-models="compareModels"
                 :model-options="modelOptions"
                 @update:compare-models="$emit('update:compareModels', $event)"
@@ -101,6 +128,7 @@
 </template>
 
 <script setup>
+import { computed, ref, watch } from 'vue';
 import CompareModelPicker from './CompareModelPicker.vue';
 
 const props = defineProps({
@@ -128,4 +156,21 @@ const emit = defineEmits([
     'share',
     'start-new-chat-reconfigure',
 ]);
+
+const comparePickerExpanded = ref(false);
+const compareModelsCount = computed(() => (
+    Array.isArray(props.compareModels)
+        ? props.compareModels.filter((item) => String(item || '').trim() !== '').length
+        : 0
+));
+
+watch(() => props.compareMode, (enabled) => {
+    if (!enabled) {
+        comparePickerExpanded.value = false;
+        return;
+    }
+
+    // Auto-open config when compare mode has less than 2 models selected.
+    comparePickerExpanded.value = compareModelsCount.value < 2;
+}, { immediate: true });
 </script>
