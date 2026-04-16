@@ -12,6 +12,7 @@ use App\Models\AiModel;
 use App\Models\AiUploadAsset;
 use App\Models\ProviderCredential;
 use App\Models\RequestLog;
+use App\Models\UserSubscription;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,15 @@ use Illuminate\Support\Str;
 
 class UnifiedChatService
 {
+    private const DEFAULT_USER_TOKEN_LIMIT = 100000;
+
+    private const AI_SUBSCRIPTION_TYPE = 3;
+
+    /**
+     * @var array<int,int>
+     */
+    private array $resolvedTokenLimits = [];
+
     public function __construct(
         private readonly ProviderRegistry $providers,
         private readonly AiUploadStorageService $uploadStorageService
@@ -482,10 +492,10 @@ class UnifiedChatService
         return [
             'tenant_id' => $tenantId,
             'total_tokens' => (int) ($totalUsage->total_tokens ?? 0),
-            'token_limit' => (int) ($totalUsage->token_limit ?? config('ai.default_user_token_limit', 10000)),
+            'token_limit' => (int) ($totalUsage->token_limit ?? self::DEFAULT_USER_TOKEN_LIMIT),
             'remaining_tokens' => max(
                 0,
-                (int) ($totalUsage->token_limit ?? config('ai.default_user_token_limit', 10000)) - (int) ($totalUsage->total_tokens ?? 0)
+                (int) ($totalUsage->token_limit ?? self::DEFAULT_USER_TOKEN_LIMIT) - (int) ($totalUsage->total_tokens ?? 0)
             ),
             'recent_requests' => $requests->map(fn (RequestLog $log) => [
                 'id' => $log->id,
@@ -807,19 +817,27 @@ class UnifiedChatService
         }
 
         $connection = DB::connection((string) config('ai.usage_connection'));
-        $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
         $now = now();
 
-        // Ensure row exists once, then atomically increment to avoid read-before-write races.
+        $updatedRows = $connection->table('ai_user_usages')
+            ->where('user_id', $tenantId)
+            ->increment('total_tokens', $tokens, ['updated_at' => $now]);
+
+        if ($updatedRows > 0) {
+            return;
+        }
+
+        // Fallback safety for first-time usage rows.
+        $resolvedTokenLimit = $this->resolveUserTokenLimit($tenantId);
         $connection->table('ai_user_usages')->upsert([
             [
                 'user_id' => $tenantId,
                 'total_tokens' => 0,
-                'token_limit' => $defaultTokenLimit,
+                'token_limit' => $resolvedTokenLimit,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
-        ], ['user_id'], ['updated_at']);
+        ], ['user_id'], ['token_limit', 'updated_at']);
 
         $connection->table('ai_user_usages')
             ->where('user_id', $tenantId)
@@ -920,18 +938,18 @@ class UnifiedChatService
     private function getOrCreateUsageState(int $tenantId): object
     {
         $connection = DB::connection((string) config('ai.usage_connection'));
-        $defaultTokenLimit = (int) config('ai.default_user_token_limit', 10000);
+        $resolvedTokenLimit = $this->resolveUserTokenLimit($tenantId);
         $now = now();
 
         $connection->table('ai_user_usages')->upsert([
             [
                 'user_id' => $tenantId,
                 'total_tokens' => 0,
-                'token_limit' => $defaultTokenLimit,
+                'token_limit' => $resolvedTokenLimit,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
-        ], ['user_id'], ['updated_at']);
+        ], ['user_id'], ['token_limit', 'updated_at']);
 
         $usage = $connection->table('ai_user_usages')
             ->where('user_id', $tenantId)
@@ -944,18 +962,37 @@ class UnifiedChatService
         return (object) [
             'user_id' => $tenantId,
             'total_tokens' => 0,
-            'token_limit' => $defaultTokenLimit,
+            'token_limit' => $resolvedTokenLimit,
         ];
     }
 
     private function assertUserWithinTokenLimit(object $usageState): void
     {
         $usedTokens = (int) ($usageState->total_tokens ?? 0);
-        $tokenLimit = (int) ($usageState->token_limit ?? config('ai.default_user_token_limit', 10000));
+        $tokenLimit = (int) ($usageState->token_limit ?? self::DEFAULT_USER_TOKEN_LIMIT);
 
         if ($usedTokens >= $tokenLimit) {
             throw new TokenLimitExceededException($tokenLimit, $usedTokens);
         }
+    }
+
+    private function resolveUserTokenLimit(int $userId): int
+    {
+        if (array_key_exists($userId, $this->resolvedTokenLimits)) {
+            return $this->resolvedTokenLimits[$userId];
+        }
+
+        $planTokenLimit = (int) UserSubscription::query()
+            ->forUser($userId)
+            ->ofType(self::AI_SUBSCRIPTION_TYPE)
+            ->active()
+            ->orderByDesc('id')
+            ->value('ai_tokens');
+
+        $resolvedLimit = $planTokenLimit > 0 ? $planTokenLimit : self::DEFAULT_USER_TOKEN_LIMIT;
+        $this->resolvedTokenLimits[$userId] = $resolvedLimit;
+
+        return $resolvedLimit;
     }
 
     /**

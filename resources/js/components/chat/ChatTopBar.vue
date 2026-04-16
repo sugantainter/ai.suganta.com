@@ -22,11 +22,30 @@
             </button>
             <select
                 :value="modelValue"
-                :disabled="modelOptions.length === 0"
+                :disabled="modelOptions.length === 0 || compareMode"
                 class="max-w-[48vw] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500 sm:max-w-[260px] max-[420px]:w-full max-[420px]:max-w-none"
                 @change="$emit('update:modelValue', $event.target.value)"
             >
                 <option v-for="item in modelOptions" :key="item.model" :value="item.model">
+                    {{ item.display_name }}
+                </option>
+            </select>
+            <button
+                class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                type="button"
+                @click="$emit('update:compareMode', !compareMode)"
+            >
+                {{ compareMode ? 'Compare: ON' : 'Compare: OFF' }}
+            </button>
+            <select
+                v-if="compareMode"
+                multiple
+                :value="compareModels"
+                :disabled="modelOptions.length === 0"
+                class="max-w-[48vw] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500 sm:max-w-[260px] max-[420px]:w-full max-[420px]:max-w-none"
+                @change="$emit('update:compareModels', Array.from($event.target.selectedOptions).map((option) => option.value))"
+            >
+                <option v-for="item in modelOptions" :key="`compare-${item.model}`" :value="item.model">
                     {{ item.display_name }}
                 </option>
             </select>
@@ -70,6 +89,8 @@
 defineProps({
     isSharedView: { type: Boolean, default: false },
     modelValue: { type: String, default: '' },
+    compareMode: { type: Boolean, default: false },
+    compareModels: { type: Array, default: () => [] },
     capabilityFilter: { type: String, default: 'all' },
     responseStyle: { type: String, default: 'balanced' },
     modelOptions: { type: Array, default: () => [] },
@@ -81,6 +102,8 @@ defineProps({
 
 defineEmits([
     'update:modelValue',
+    'update:compareMode',
+    'update:compareModels',
     'update:capabilityFilter',
     'update:responseStyle',
     'open-search',

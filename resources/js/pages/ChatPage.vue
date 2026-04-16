@@ -143,6 +143,8 @@
                     </div>
                     <ChatTopBar
                         v-model="model"
+                        :compare-mode="compareMode"
+                        :compare-models="compareModels"
                         :capability-filter="capabilityFilter"
                         :response-style="responseStyle"
                         :is-shared-view="isSharedView"
@@ -153,6 +155,8 @@
                         :can-share="Boolean(currentConversationId)"
                         @update:capability-filter="capabilityFilter = $event"
                         @update:response-style="responseStyle = $event"
+                        @update:compare-mode="compareMode = $event"
+                        @update:compare-models="compareModels = $event"
                         @open-search="openSearchModal"
                         @share="shareConversation"
                     />
@@ -182,6 +186,12 @@
                                     class="space-y-2 wrap-break-word"
                                     v-html="formatMessageContent(message.content)"
                                 ></div>
+                                <p
+                                    v-if="message.role === 'assistant' && !message.processing && (message.model || message.provider)"
+                                    class="mt-2 text-[11px] text-zinc-400"
+                                >
+                                    {{ message.model || 'Assistant' }}<span v-if="message.provider"> ({{ message.provider }})</span>
+                                </p>
                             </div>
                             <div
                                 v-if="message.attachments?.length"
@@ -528,6 +538,8 @@ let activeSearchRequestId = 0;
 
 const currentConversationId = ref(null);
 const model = ref('gemini-2.5-flash-lite');
+const compareMode = ref(false);
+const compareModels = ref([]);
 const temperature = ref(0.7);
 const capabilityFilter = ref('all');
 const responseStyle = ref('balanced');
@@ -587,6 +599,17 @@ const modelOptions = computed(() => {
     return models.value;
 });
 
+const activeModelKeys = computed(() => {
+    if (!compareMode.value) {
+        return model.value ? [model.value] : [];
+    }
+    const available = new Set(modelOptions.value.map((item) => String(item.model || '')));
+    const selected = compareModels.value
+        .map((item) => String(item || '').trim())
+        .filter((item) => item !== '' && available.has(item));
+    return Array.from(new Set(selected));
+});
+
 const filteredConversations = computed(() => {
     if (!searchQuery.value.trim()) {
         return conversations.value;
@@ -623,6 +646,21 @@ watch([capabilityFilter, models], () => {
         }
     } else {
         modelErrorMessage.value = '';
+    }
+
+    const available = new Set(modelOptions.value.map((item) => String(item.model || '')));
+    compareModels.value = compareModels.value.filter((item) => available.has(String(item || '')));
+    if (compareMode.value && compareModels.value.length === 0 && model.value) {
+        compareModels.value = [model.value];
+    }
+});
+
+watch(compareMode, (enabled) => {
+    if (!enabled) {
+        return;
+    }
+    if (compareModels.value.length === 0 && model.value) {
+        compareModels.value = [model.value];
     }
 });
 
@@ -1236,8 +1274,10 @@ async function sendMessage() {
         return;
     }
 
-    if (!model.value) {
-        modelErrorMessage.value = 'Please select a model before sending your message.';
+    if (activeModelKeys.value.length === 0) {
+        modelErrorMessage.value = compareMode.value
+            ? 'Please select one or more models for comparison.'
+            : 'Please select a model before sending your message.';
         chatErrorMessage.value = '';
         statusText.value = 'Model selection required';
         return;
@@ -1254,15 +1294,16 @@ async function sendMessage() {
         attachments: currentAttachments,
         processing: false,
     }];
-    messages.value = [...nextMessages, {
+    const placeholderReplies = activeModelKeys.value.map((modelKey) => ({
         role: 'assistant',
         content: '',
         attachments: [],
         provider: '',
-        model: '',
+        model: modelKey,
         feedback: null,
         processing: true,
-    }];
+    }));
+    messages.value = [...nextMessages, ...placeholderReplies];
     inputMessage.value = '';
     attachments.value = [];
     sending.value = true;
@@ -1272,8 +1313,7 @@ async function sendMessage() {
     statusText.value = 'Sending...';
     await scrollMessagesToBottom();
 
-    const payload = {
-        model: model.value,
+    const payloadBase = {
         conversation_id: currentConversationId.value ?? undefined,
         save_history: true,
         stream: false,
@@ -1291,25 +1331,64 @@ async function sendMessage() {
     };
 
     try {
-        const data = await performChatRequest(payload);
+        let workingConversationId = currentConversationId.value ?? null;
+        let firstError = null;
+        let successCount = 0;
+        const baseIndex = nextMessages.length;
 
-        if (data.conversation_id) {
-            currentConversationId.value = data.conversation_id;
-            await syncConversationRoute(data.conversation_id);
-            await loadConversationAssets(data.conversation_id);
+        for (let modelIndex = 0; modelIndex < activeModelKeys.value.length; modelIndex += 1) {
+            const selectedModel = activeModelKeys.value[modelIndex];
+            statusText.value = compareMode.value
+                ? `Generating response (${modelIndex + 1}/${activeModelKeys.value.length})...`
+                : 'Generating response...';
+
+            try {
+                const data = await performChatRequest({
+                    ...payloadBase,
+                    model: selectedModel,
+                    conversation_id: workingConversationId ?? payloadBase.conversation_id,
+                });
+                if (data.conversation_id) {
+                    workingConversationId = data.conversation_id;
+                }
+                messages.value[baseIndex + modelIndex] = {
+                    role: 'assistant',
+                    content: extractAssistantMessage(data),
+                    attachments: [],
+                    provider: String(data?.provider || ''),
+                    model: String(data?.model || selectedModel || ''),
+                    feedback: null,
+                    processing: false,
+                };
+                messages.value = [...messages.value];
+                successCount += 1;
+            } catch (error) {
+                if (!firstError) {
+                    firstError = error;
+                }
+                messages.value[baseIndex + modelIndex] = {
+                    role: 'assistant',
+                    content: `Error from ${selectedModel}: ${toUserFriendlyChatError(error)}`,
+                    attachments: [],
+                    provider: '',
+                    model: selectedModel,
+                    feedback: null,
+                    processing: false,
+                };
+                messages.value = [...messages.value];
+            }
         }
 
-        messages.value = [...nextMessages, {
-            role: 'assistant',
-            content: extractAssistantMessage(data),
-            attachments: [],
-            provider: String(data?.provider || ''),
-            model: String(data?.model || model.value || ''),
-            feedback: null,
-            processing: false,
-        }];
+        if (workingConversationId) {
+            currentConversationId.value = workingConversationId;
+            await syncConversationRoute(workingConversationId);
+            await loadConversationAssets(workingConversationId);
+        }
+        if (successCount === 0 && firstError) {
+            throw firstError;
+        }
         await Promise.all([loadConversationList(), loadUsage()]);
-        statusText.value = 'Response received';
+        statusText.value = compareMode.value ? 'Comparison completed' : 'Response received';
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
         await scrollMessagesToBottom();
