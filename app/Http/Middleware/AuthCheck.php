@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SugantaLoginGateway;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -19,8 +20,6 @@ class AuthCheck
     public function handle(Request $request, Closure $next): Response
     {
         $authApiUrl = rtrim((string) config('services.suganta_auth.user_endpoint', 'https://api.suganta.com/api/v1/auth/user'), '/');
-        $redirectBase = rtrim((string) config('services.suganta_auth.redirect_url', 'https://app.suganta.com'), '/');
-        $redirectMessage = 'Login To Access SuGanta Ai';
         $sessionKey = 'suganta_auth.user';
         $cacheTtlSeconds = (int) config('services.suganta_auth.cache_ttl_seconds', 60);
         $refreshBeforeSeconds = (int) config('services.suganta_auth.refresh_before_seconds', 15);
@@ -76,7 +75,7 @@ class AuthCheck
             $userData = (array) data_get($data, 'user', []);
 
             if (! $response->ok() || ! $authenticated) {
-                return redirect()->away($redirectBase.'?message='.urlencode($redirectMessage));
+                return SugantaLoginGateway::redirect($request);
             }
 
             $authContext = $this->buildAuthContext($userData);
@@ -97,7 +96,7 @@ class AuthCheck
                 return $next($request);
             }
 
-            return redirect()->away($redirectBase.'?message='.urlencode($redirectMessage));
+            return SugantaLoginGateway::redirect($request);
         }
 
         return $next($request);

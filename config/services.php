@@ -41,6 +41,7 @@ return [
         'profile_endpoint' => env('SUGANTA_AUTH_PROFILE_ENDPOINT', 'https://api.suganta.com/api/v1/profile'),
         'profile_password_endpoint' => env('SUGANTA_AUTH_PROFILE_PASSWORD_ENDPOINT', 'https://api.suganta.com/api/v1/profile/password'),
         'redirect_url' => env('SUGANTA_AUTH_REDIRECT_URL', 'https://app.suganta.com'),
+        'login_required_message' => env('SUGANTA_AUTH_LOGIN_REQUIRED_MESSAGE', 'Login to access this page.'),
         'cache_ttl_seconds' => (int) env('SUGANTA_AUTH_CACHE_TTL_SECONDS', 60),
         'refresh_before_seconds' => (int) env('SUGANTA_AUTH_REFRESH_BEFORE_SECONDS', 15),
     ],

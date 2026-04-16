@@ -165,6 +165,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { showErrorAlert } from '../utils/alerts';
+import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
 
 const CONTACT_API_URL = 'https://api.suganta.com/api/v1/contacts';
 
@@ -219,10 +220,13 @@ async function preloadAuthUserProfile() {
                 Accept: 'application/json',
             },
         });
+        const data = await response.json().catch(() => ({}));
+        if (loginGatewayRedirectIfNeeded(response, data)) {
+            return;
+        }
         if (!response.ok) {
             return;
         }
-        const data = await response.json().catch(() => ({}));
         const profile = resolveAuthProfile(data ?? {});
         if (!profile.first_name || !profile.last_name || !profile.email) {
             return;

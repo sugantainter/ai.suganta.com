@@ -419,6 +419,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { showErrorAlert } from '../utils/alerts';
+import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
 
 const overview = ref({});
 const providerKeys = ref([]);
@@ -578,6 +579,9 @@ async function apiRequest(path, options = {}) {
 
     const data = await parseApiResponse(response);
     if (!response.ok) {
+        if (loginGatewayRedirectIfNeeded(response, data)) {
+            return new Promise(() => {});
+        }
         throw new Error(data?.message || `Request failed: ${response.status}`);
     }
 

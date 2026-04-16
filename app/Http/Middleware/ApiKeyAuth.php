@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\ApiKey;
+use App\Support\SugantaLoginGateway;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -22,7 +23,7 @@ class ApiKeyAuth
                 ->first();
 
             if (! $apiKey) {
-                return response()->json(['message' => 'Invalid API key.'], Response::HTTP_UNAUTHORIZED);
+                return SugantaLoginGateway::unauthorizedApiResponse($request, 'Invalid API key.');
             }
 
             $apiKey->forceFill(['last_used_at' => now()])->save();
@@ -43,7 +44,10 @@ class ApiKeyAuth
 
         $userId = $this->extractUserId($authUser);
         if ($userId === null) {
-            return response()->json(['message' => 'Missing authentication. Provide X-API-Key or user auth session/token.'], Response::HTTP_UNAUTHORIZED);
+            return SugantaLoginGateway::unauthorizedApiResponse(
+                $request,
+                'Missing authentication. Provide X-API-Key or user auth session/token.'
+            );
         }
 
         $request->attributes->set('tenant_id', $userId);

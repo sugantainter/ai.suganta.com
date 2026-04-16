@@ -492,6 +492,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { showConfirmAlert, showErrorAlert } from '../utils/alerts';
+import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
 import ChatSearchModal from '../components/chat/ChatSearchModal.vue';
@@ -729,6 +730,9 @@ async function apiRequest(path, options = {}) {
 
     const data = await parseApiResponse(response);
     if (!response.ok) {
+        if (loginGatewayRedirectIfNeeded(response, data)) {
+            return new Promise(() => {});
+        }
         const error = new Error(data?.message || `Request failed: ${response.status}`);
         error.code = String(data?.code || '');
         error.status = Number(response.status || 0);

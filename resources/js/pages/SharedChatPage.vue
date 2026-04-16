@@ -90,6 +90,7 @@
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { showErrorAlert } from '../utils/alerts';
+import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
 
 const route = useRoute();
 const messageContainerRef = ref(null);
@@ -106,6 +107,10 @@ async function detectAuthState() {
                 Accept: 'application/json',
             },
         });
+        const data = await parseApiResponse(response);
+        if (loginGatewayRedirectIfNeeded(response, data)) {
+            return;
+        }
         isAuthenticated.value = response.ok;
     } catch {
         isAuthenticated.value = false;
