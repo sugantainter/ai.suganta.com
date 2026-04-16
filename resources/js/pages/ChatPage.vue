@@ -153,14 +153,12 @@
                         :model-error-message="modelErrorMessage"
                         :share-loading="shareLoading"
                         :can-share="Boolean(currentConversationId)"
-                        :hide-compare-picker="messages.length > 0"
                         @update:capability-filter="capabilityFilter = $event"
                         @update:response-style="responseStyle = $event"
                         @update:compare-mode="compareMode = $event"
                         @update:compare-models="compareModels = $event"
                         @open-search="openSearchModal"
                         @share="shareConversation"
-                        @start-new-chat-reconfigure="startNewChat"
                     />
                 </div>
 
@@ -505,6 +503,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { showConfirmAlert, showErrorAlert } from '../utils/alerts';
 import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
+import { executeModelRequests } from './chat/compareRunner';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
 import ChatSearchModal from '../components/chat/ChatSearchModal.vue';
@@ -579,6 +578,7 @@ let chatPollCancelled = false;
 let copiedAssistantTimer = null;
 const ASYNC_MODE_MAX_MS = 300000;
 const CHAT_SYNC_REQUEST_TIMEOUT_MS = 300000;
+const COMPARE_MAX_PARALLEL_REQUESTS = 8;
 const MAX_CONTEXT_MESSAGES = 12;
 const isSharedView = computed(() => route.name === 'chat.shared');
 const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
@@ -1278,6 +1278,48 @@ async function runSearchFromDatabase(query) {
     }
 }
 
+function setAssistantMessageAt(baseIndex, modelIndex, message) {
+    messages.value[baseIndex + modelIndex] = message;
+    messages.value = [...messages.value];
+}
+
+function buildAssistantSuccessMessage(data, selectedModel) {
+    return {
+        role: 'assistant',
+        content: extractAssistantMessage(data),
+        attachments: [],
+        provider: String(data?.provider || ''),
+        model: String(data?.model || selectedModel || ''),
+        feedback: null,
+        processing: false,
+    };
+}
+
+function buildAssistantErrorMessage(selectedModel, error) {
+    return {
+        role: 'assistant',
+        content: `Error from ${selectedModel}: ${toUserFriendlyChatError(error)}`,
+        attachments: [],
+        provider: '',
+        model: selectedModel,
+        feedback: null,
+        processing: false,
+    };
+}
+
+function updateModelProgressStatus(isCompareMode, completedCount, totalModels, currentModelIndex = null) {
+    if (isCompareMode) {
+        if (currentModelIndex !== null) {
+            statusText.value = `Generating response (${currentModelIndex + 1}/${totalModels})...`;
+            return;
+        }
+        statusText.value = `Completed ${completedCount}/${totalModels} model responses...`;
+        return;
+    }
+
+    statusText.value = 'Generating response...';
+}
+
 async function sendMessage() {
     if (isSharedView.value) {
         await showErrorAlert('Please login to continue this conversation with full features.', 'Login required');
@@ -1353,53 +1395,38 @@ async function sendMessage() {
     };
 
     try {
-        let workingConversationId = currentConversationId.value ?? null;
-        let firstError = null;
-        let successCount = 0;
         const baseIndex = nextMessages.length;
-
-        for (let modelIndex = 0; modelIndex < activeModelKeys.value.length; modelIndex += 1) {
-            const selectedModel = activeModelKeys.value[modelIndex];
-            statusText.value = compareMode.value
-                ? `Generating response (${modelIndex + 1}/${activeModelKeys.value.length})...`
-                : 'Generating response...';
-
-            try {
-                const data = await performChatRequest({
-                    ...payloadBase,
-                    model: selectedModel,
-                    conversation_id: workingConversationId ?? payloadBase.conversation_id,
-                });
-                if (data.conversation_id) {
-                    workingConversationId = data.conversation_id;
-                }
-                messages.value[baseIndex + modelIndex] = {
-                    role: 'assistant',
-                    content: extractAssistantMessage(data),
-                    attachments: [],
-                    provider: String(data?.provider || ''),
-                    model: String(data?.model || selectedModel || ''),
-                    feedback: null,
-                    processing: false,
-                };
-                messages.value = [...messages.value];
-                successCount += 1;
-            } catch (error) {
-                if (!firstError) {
-                    firstError = error;
-                }
-                messages.value[baseIndex + modelIndex] = {
-                    role: 'assistant',
-                    content: `Error from ${selectedModel}: ${toUserFriendlyChatError(error)}`,
-                    attachments: [],
-                    provider: '',
-                    model: selectedModel,
-                    feedback: null,
-                    processing: false,
-                };
-                messages.value = [...messages.value];
-            }
-        }
+        const selectedModelKeys = [...activeModelKeys.value];
+        const totalModels = selectedModelKeys.length;
+        let completedCount = 0;
+        const {
+            workingConversationId,
+            firstError,
+            successCount,
+        } = await executeModelRequests({
+            compareMode: compareMode.value,
+            selectedModelKeys,
+            payloadBase,
+            initialConversationId: currentConversationId.value ?? null,
+            maxParallelRequests: COMPARE_MAX_PARALLEL_REQUESTS,
+            performChatRequest,
+            onModelStart: ({ modelIndex }) => {
+                updateModelProgressStatus(compareMode.value, completedCount, totalModels, modelIndex);
+            },
+            onModelSuccess: ({ modelIndex, selectedModel, data }) => {
+                setAssistantMessageAt(baseIndex, modelIndex, buildAssistantSuccessMessage(data, selectedModel));
+                completedCount += 1;
+                updateModelProgressStatus(compareMode.value, completedCount, totalModels);
+            },
+            onModelError: ({ modelIndex, selectedModel, error }) => {
+                setAssistantMessageAt(baseIndex, modelIndex, buildAssistantErrorMessage(selectedModel, error));
+                completedCount += 1;
+                updateModelProgressStatus(compareMode.value, completedCount, totalModels);
+            },
+            onParallelStart: ({ concurrency }) => {
+                statusText.value = `Running compare requests in parallel (max ${concurrency} at once)...`;
+            },
+        });
 
         if (workingConversationId) {
             currentConversationId.value = workingConversationId;

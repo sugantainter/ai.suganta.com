@@ -74,7 +74,7 @@
             </div>
 
             <div
-                v-if="compareMode && !hideComparePicker"
+                v-if="compareMode"
                 ref="comparePanelRef"
                 class="space-y-2"
             >
@@ -123,19 +123,6 @@
                     />
                 </Transition>
             </div>
-            <div
-                v-else-if="compareMode && hideComparePicker"
-                class="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-400"
-            >
-                <span>Comparison settings are hidden after chat starts. Start a new chat to change compared models.</span>
-                <button
-                    type="button"
-                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-800"
-                    @click="$emit('start-new-chat-reconfigure')"
-                >
-                    New chat and reconfigure compare
-                </button>
-            </div>
         </div>
 
         <p v-if="modelErrorMessage" class="mt-2 text-xs text-red-400">
@@ -160,7 +147,6 @@ const props = defineProps({
     modelErrorMessage: { type: String, default: '' },
     shareLoading: { type: Boolean, default: false },
     canShare: { type: Boolean, default: false },
-    hideComparePicker: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -171,7 +157,6 @@ const emit = defineEmits([
     'update:responseStyle',
     'open-search',
     'share',
-    'start-new-chat-reconfigure',
 ]);
 
 const comparePickerExpanded = ref(false);
@@ -191,12 +176,6 @@ watch(() => props.compareMode, (enabled) => {
     // Auto-open config when compare mode has less than 2 models selected.
     comparePickerExpanded.value = compareModelsCount.value < 2;
 }, { immediate: true });
-
-watch(() => props.hideComparePicker, (hidden) => {
-    if (hidden) {
-        comparePickerExpanded.value = false;
-    }
-});
 
 function openComparePicker() {
     comparePickerExpanded.value = true;
