@@ -17,6 +17,20 @@ class OpenAIProvider implements ChatProviderInterface
     public function chat(array $payload, string $apiKey): array
     {
         $providerKey = $this->key();
+        $requestBody = [
+            'model' => (string) ($payload['model'] ?? ''),
+            'messages' => (array) ($payload['messages'] ?? []),
+            'stream' => false,
+        ];
+
+        if (isset($payload['temperature']) && is_numeric($payload['temperature'])) {
+            $requestBody['temperature'] = (float) $payload['temperature'];
+        }
+
+        if (isset($payload['max_tokens']) && is_numeric($payload['max_tokens']) && (int) $payload['max_tokens'] > 0) {
+            $requestBody['max_tokens'] = (int) $payload['max_tokens'];
+        }
+
         $response = Http::retry(
             config('ai.request_retries', 2),
             config('ai.retry_delay_ms', 200),
@@ -26,16 +40,14 @@ class OpenAIProvider implements ChatProviderInterface
             ->timeout(config('ai.request_timeout_seconds', 12))
             ->withToken($apiKey)
             ->acceptJson()
-            ->post(rtrim((string) config("ai.providers.{$providerKey}.base_url"), '/').'/chat/completions', [
-                'model' => $payload['model'],
-                'messages' => $payload['messages'],
-                'temperature' => $payload['temperature'] ?? 0.7,
-                'max_tokens' => $payload['max_tokens'] ?? null,
-                'stream' => false,
-            ]);
+            ->post(rtrim((string) config("ai.providers.{$providerKey}.base_url"), '/').'/chat/completions', $requestBody);
 
         if (! $response->successful()) {
-            $upstreamMessage = trim((string) data_get((array) $response->json(), 'error.message', ''));
+            $decoded = (array) $response->json();
+            $upstreamMessage = trim((string) data_get($decoded, 'error.message', ''));
+            if ($upstreamMessage === '') {
+                $upstreamMessage = trim((string) $response->body());
+            }
             $message = $upstreamMessage !== ''
                 ? ucfirst($providerKey)." request failed with status {$response->status()}: {$upstreamMessage}"
                 : ucfirst($providerKey)." request failed with status {$response->status()}.";
