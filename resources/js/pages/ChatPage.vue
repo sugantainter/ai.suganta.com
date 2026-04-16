@@ -153,12 +153,14 @@
                         :model-error-message="modelErrorMessage"
                         :share-loading="shareLoading"
                         :can-share="Boolean(currentConversationId)"
+                        :hide-compare-picker="messages.length > 0"
                         @update:capability-filter="capabilityFilter = $event"
                         @update:response-style="responseStyle = $event"
                         @update:compare-mode="compareMode = $event"
                         @update:compare-models="compareModels = $event"
                         @open-search="openSearchModal"
                         @share="shareConversation"
+                        @start-new-chat-reconfigure="startNewChat"
                     />
                 </div>
 

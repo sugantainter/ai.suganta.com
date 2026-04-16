@@ -20,6 +20,22 @@
                 <button
                     type="button"
                     class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                    :disabled="reasoningOptions.length === 0"
+                    @click="selectPreset('reasoning')"
+                >
+                    Reasoning
+                </button>
+                <button
+                    type="button"
+                    class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                    :disabled="visionOptions.length === 0"
+                    @click="selectPreset('vision')"
+                >
+                    Vision
+                </button>
+                <button
+                    type="button"
+                    class="rounded-md border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
                     :disabled="filteredCompareOptions.length === 0"
                     @click="selectAllModels"
                 >
@@ -35,8 +51,12 @@
                 </button>
             </div>
         </div>
+        <div class="mb-2 flex items-center justify-between text-[11px] text-zinc-400">
+            <span>{{ selectedCompareModels.length }} selected</span>
+            <span>{{ filteredCompareOptions.length }} available in filter</span>
+        </div>
 
-        <div class="max-h-36 space-y-1 overflow-y-auto pr-1">
+        <div class="max-h-44 space-y-1 overflow-y-auto pr-1">
             <label
                 v-for="item in filteredCompareOptions"
                 :key="`compare-picker-${item.model}`"
@@ -49,7 +69,16 @@
                     @change="toggleCompareModel(item.model)"
                 >
                 <span class="truncate">{{ item.display_name }}</span>
+                <span
+                    v-if="item.provider"
+                    class="ml-auto rounded border border-zinc-700 bg-zinc-800/70 px-1.5 py-0.5 text-[10px] text-zinc-400"
+                >
+                    {{ item.provider }}
+                </span>
             </label>
+            <p v-if="filteredCompareOptions.length === 0" class="px-2 py-1 text-xs text-zinc-500">
+                No models match your filter.
+            </p>
         </div>
 
         <div class="mt-3 flex flex-wrap gap-1.5">
@@ -116,6 +145,9 @@ const filteredCompareOptions = computed(() => {
     });
 });
 
+const reasoningOptions = computed(() => filteredCompareOptions.value.filter((item) => item?.supports_reasoning === true));
+const visionOptions = computed(() => filteredCompareOptions.value.filter((item) => item?.supports_vision === true));
+
 function toggleCompareModel(modelKey) {
     const normalized = String(modelKey || '');
     if (normalized === '') {
@@ -158,6 +190,15 @@ function selectTopModels(limit) {
         return;
     }
 
+    emit('update:compareModels', Array.from(new Set(all)));
+}
+
+function selectPreset(type) {
+    const source = type === 'reasoning' ? reasoningOptions.value : visionOptions.value;
+    const all = source.map((item) => String(item.model || '')).filter((key) => key !== '');
+    if (all.length === 0) {
+        return;
+    }
     emit('update:compareModels', Array.from(new Set(all)));
 }
 </script>
