@@ -812,7 +812,14 @@ function toUserFriendlyChatError(error) {
     const status = Number(error?.status || 0);
     const rawMessage = String(error?.message || '').trim();
 
+    if (code === 'token_limit_exceeded' && rawMessage) {
+        return rawMessage;
+    }
+
     if (status === 429) {
+        if (rawMessage) {
+            return rawMessage;
+        }
         return 'Too many requests right now. Please wait a few seconds and try again.';
     }
     if (code === 'chat_concurrency_limited') {

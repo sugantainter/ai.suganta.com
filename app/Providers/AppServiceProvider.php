@@ -36,15 +36,25 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        RateLimiter::for('ai-chat', function (Request $request) {
-            $defaultLimit = (int) env('AI_API_DEFAULT_RATE_LIMIT', 60);
-            $maxPerMinute = (int) $request->attributes->get('api_key_rate_limit', $defaultLimit);
+        $resolveRateKey = static function (Request $request): string {
             $rateKey = $request->attributes->get('api_key_id')
                 ?? $request->attributes->get('tenant_id')
                 ?? $request->ip();
-            $by = (string) $rateKey;
 
-            return Limit::perMinute(max(1, $maxPerMinute))->by($by);
+            return (string) $rateKey;
+        };
+
+        RateLimiter::for('ai-chat', function (Request $request) use ($resolveRateKey) {
+            $defaultLimit = (int) env('AI_API_DEFAULT_RATE_LIMIT', 60);
+            $maxPerMinute = (int) $request->attributes->get('api_key_rate_limit', $defaultLimit);
+
+            return Limit::perMinute(max(1, $maxPerMinute))->by($resolveRateKey($request));
+        });
+
+        RateLimiter::for('ai-chat-poll', function (Request $request) use ($resolveRateKey) {
+            $defaultPollLimit = (int) env('AI_API_POLL_RATE_LIMIT', 240);
+
+            return Limit::perMinute(max(30, $defaultPollLimit))->by($resolveRateKey($request));
         });
     }
 }

@@ -16,7 +16,8 @@ Route::prefix('v1')
         Route::post('/chat', [ChatController::class, 'chat']);
         Route::post('/chat/feedback', [ChatController::class, 'feedback']);
         Route::post('/chat/async', [ChatController::class, 'chatAsync']);
-        Route::get('/chat/jobs/{jobId}', [ChatController::class, 'chatJobStatus']);
+        Route::get('/chat/jobs/{jobId}', [ChatController::class, 'chatJobStatus'])
+            ->middleware('throttle:ai-chat-poll');
         Route::get('/chat/histories', [ChatController::class, 'histories']);
         Route::get('/chat/histories/search', [ChatController::class, 'searchHistories']);
         Route::get('/chat/history/{conversationId}', [ChatController::class, 'history']);
