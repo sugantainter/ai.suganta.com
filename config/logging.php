@@ -127,6 +127,78 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'ai_provider_openai' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/openai.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_gemini' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/gemini.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_anthropic' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/anthropic.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_grok' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/grok.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_deepseek' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/deepseek.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_openrouter' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/openrouter.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_mistral' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/mistral.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_cohere' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/cohere.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'ai_provider_perplexity' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/providers/perplexity.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'warning'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

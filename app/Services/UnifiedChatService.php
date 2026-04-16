@@ -13,7 +13,6 @@ use App\Models\AiUploadAsset;
 use App\Models\ProviderCredential;
 use App\Models\RequestLog;
 use App\Models\UserSubscription;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
@@ -139,7 +138,10 @@ class UnifiedChatService
             $summary = $attemptErrors !== []
                 ? ' Attempts: '.implode(' | ', $attemptErrors)
                 : '';
-            throw new ConnectionException('No provider succeeded for this model.'.$summary, previous: $lastException);
+            if ($lastException instanceof \Throwable) {
+                throw new \RuntimeException('No provider succeeded for this model.'.$summary, previous: $lastException);
+            }
+            throw new \RuntimeException('No provider succeeded for this model.'.$summary);
         } finally {
             $this->releaseConcurrencySlots($counterKeys);
         }
