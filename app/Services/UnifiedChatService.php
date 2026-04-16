@@ -982,12 +982,15 @@ class UnifiedChatService
             return $this->resolvedTokenLimits[$userId];
         }
 
-        $planTokenLimit = (int) UserSubscription::query()
+        $subscription = UserSubscription::query()
             ->forUser($userId)
             ->ofType(self::AI_SUBSCRIPTION_TYPE)
             ->active()
             ->orderByDesc('id')
-            ->value('ai_tokens');
+            ->with(['subscriptionPlan:id,ai_tokens'])
+            ->first();
+
+        $planTokenLimit = (int) ($subscription?->subscriptionPlan?->ai_tokens ?? 0);
 
         $resolvedLimit = $planTokenLimit > 0 ? $planTokenLimit : self::DEFAULT_USER_TOKEN_LIMIT;
         $this->resolvedTokenLimits[$userId] = $resolvedLimit;

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserSubscription extends Model
 {
@@ -21,7 +22,6 @@ class UserSubscription extends Model
         'payment_method',
         'transaction_id',
         'amount_paid',
-        'ai_tokens'
     ];
 
     protected $casts = [
@@ -29,7 +29,11 @@ class UserSubscription extends Model
         'expires_at' => 'datetime',
         'amount_paid' => 'decimal:2',
     ];
-   
+
+    public function subscriptionPlan(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
+    }
 
     /**
      * Check if subscription is active
@@ -67,6 +71,8 @@ class UserSubscription extends Model
 
     public function scopeOfType($query, int $type)
     {
-        return $query->where('s_type', $type);
+        return $query->whereHas('subscriptionPlan', function ($planQuery) use ($type) {
+            $planQuery->where('s_type', $type);
+        });
     }
 }
