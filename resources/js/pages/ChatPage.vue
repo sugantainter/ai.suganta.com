@@ -89,7 +89,7 @@
                 </div>
 
                 <div class="shrink-0 border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
-                    {{ usage.total_tokens ?? 0 }} / {{ usage.token_limit ?? 10000 }} tokens
+                    {{ usagePercentLabel }}
                 </div>
             </aside>
 
@@ -508,6 +508,15 @@ const conversations = ref([]);
 const messages = ref([]);
 const usage = ref({ total_tokens: 0, recent_requests: [] });
 const models = ref([]);
+
+const usagePercentLabel = computed(() => {
+    const total = Number(usage.value?.total_tokens ?? 0);
+    const limit = Math.max(Number(usage.value?.token_limit ?? 10000), 1);
+    const percent = (total / limit) * 100;
+    const formattedTotal = new Intl.NumberFormat().format(total);
+    const formattedLimit = new Intl.NumberFormat().format(limit);
+    return `${percent.toFixed(2)}% used (${formattedTotal} / ${formattedLimit})`;
+});
 
 const searchQuery = ref('');
 const searchModalOpen = ref(false);

@@ -90,7 +90,7 @@
                     </div>
                 </div>
                 <div class="shrink-0 border-t border-zinc-800 px-3 py-3 text-xs text-zinc-500">
-                    {{ overview.usage?.total_tokens ?? 0 }} / {{ overview.usage?.token_limit ?? 10000 }} tokens
+                    {{ usagePercentLabel }}
                 </div>
             </aside>
 
@@ -442,6 +442,15 @@ const passwordForm = ref({
     password_confirmation: '',
 });
 const settingsScrollRef = ref(null);
+
+const usagePercentLabel = computed(() => {
+    const total = Number(overview.value?.usage?.total_tokens ?? 0);
+    const limit = Math.max(Number(overview.value?.usage?.token_limit ?? 10000), 1);
+    const percent = (total / limit) * 100;
+    const formattedTotal = new Intl.NumberFormat().format(total);
+    const formattedLimit = new Intl.NumberFormat().format(limit);
+    return `${percent.toFixed(2)}% used (${formattedTotal} / ${formattedLimit})`;
+});
 
 const menuItems = [
     { id: 'general', label: 'General' },
