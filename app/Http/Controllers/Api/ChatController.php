@@ -91,6 +91,29 @@ class ChatController extends Controller
                 'job_id' => $async['job_id'],
                 'status' => $async['status'],
             ], 202);
+        } catch (\RuntimeException $exception) {
+            $message = (string) $exception->getMessage();
+            if (str_starts_with($message, 'No provider succeeded for this model.')) {
+                $isModelUnavailable = str_contains(strtolower($message), 'model not found');
+                Log::warning('Chat provider exhausted all attempts.', [
+                    'tenant_id' => $tenantId,
+                    'api_key_id' => $apiKeyId,
+                    'model' => $payload['model'] ?? null,
+                    'provider' => $payload['provider'] ?? null,
+                    'stream' => (bool) ($payload['stream'] ?? false),
+                    'error' => $message,
+                    'exception' => $exception::class,
+                ]);
+
+                return response()->json([
+                    'message' => $isModelUnavailable
+                        ? 'Selected model is currently unavailable on the provider. Please choose another model.'
+                        : 'All provider attempts failed for this model. Please retry or switch model.',
+                    'code' => $isModelUnavailable ? 'provider_model_unavailable' : 'provider_attempts_failed',
+                ], $isModelUnavailable ? 422 : 503);
+            }
+
+            throw $exception;
         } catch (\Throwable $exception) {
             Log::error('Chat request failed.', [
                 'tenant_id' => $tenantId,

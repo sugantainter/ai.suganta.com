@@ -67,6 +67,14 @@ return [
         'grok' => [
             'base_url' => env('GROK_BASE_URL', 'https://api.x.ai/v1'),
             'api_key' => env('GROK_API_KEY'),
+            'model_aliases' => [
+                'grok-2-mini' => env('GROK_MODEL_ALIAS_GROK_2_MINI', ''),
+                'grok-2-latest' => env('GROK_MODEL_ALIAS_GROK_2_LATEST', ''),
+            ],
+            'model_fallback_candidates' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('GROK_MODEL_FALLBACK_CANDIDATES', ''))
+            ))),
         ],
         'deepseek' => [
             'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
