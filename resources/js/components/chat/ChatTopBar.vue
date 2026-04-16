@@ -14,7 +14,12 @@
         </div>
 
         <div v-else class="space-y-2">
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-2.5">
+                <div class="mb-2 flex items-center justify-between gap-2">
+                    <p class="text-xs font-medium text-zinc-300">Chat Controls</p>
+                    <p class="text-[11px] text-zinc-500">{{ statusText }}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
             <button
                 class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
                 @click="$emit('open-search')"
@@ -65,7 +70,7 @@
             >
                 {{ shareLoading ? 'Sharing...' : 'Share' }}
             </button>
-            <p class="w-full text-left text-xs text-zinc-500 sm:ml-auto sm:w-auto sm:text-right">{{ statusText }}</p>
+                </div>
             </div>
 
             <CompareModelPicker
