@@ -94,7 +94,7 @@
                 >
                     reasoning
                 </span>
-                <button
+                <span
                     v-if="item.provider"
                     class="ml-auto rounded border border-zinc-700 bg-zinc-800/70 px-1.5 py-0.5 text-[10px] text-zinc-400"
                 >
