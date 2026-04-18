@@ -314,6 +314,7 @@ class UnifiedChatService
                 'share_enabled' => true,
             ],
             'messages' => $messages->map(fn ($message): array => [
+                'id' => (int) ($message->id ?? 0),
                 'role' => (string) ($message->role ?? 'assistant'),
                 'content' => (string) ($message->content ?? ''),
                 'created_at' => (string) ($message->created_at ?? ''),

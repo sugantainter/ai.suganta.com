@@ -5,9 +5,7 @@
                 <div class="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <a
-                            href="https://www.suganta.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            :href="siteChatUrl"
                             class="rounded-xl border border-zinc-700 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/30"
                         >
                             <img
@@ -22,10 +20,10 @@
                         </div>
                     </div>
                     <a
-                        href="/"
-                        class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-100 hover:bg-zinc-800"
+                        :href="siteChatUrl"
+                        class="rounded-lg border border-emerald-700/60 bg-emerald-950/50 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/60"
                     >
-                        {{ isAuthenticated ? 'Go to dashboard' : 'Login' }}
+                        Go to chat
                     </a>
                 </div>
             </div>
@@ -34,49 +32,52 @@
                 <div class="mx-auto w-full max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
                     <div class="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
                         <p class="text-sm text-zinc-300">This is a public snapshot of a conversation.</p>
-                        <p class="mt-1 text-xs text-zinc-500">Sign in to continue, upload files, and access advanced tools.</p>
+                        <p class="mt-1 text-xs text-zinc-500">
+                            Use <span class="font-medium text-zinc-400">Go to chat</span> to open SuGanta AI and start your own thread.
+                        </p>
                     </div>
 
                     <div v-if="messages.length" class="space-y-4">
-                    <div
-                        v-for="(message, index) in messages"
-                        :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
-                        class="mb-4"
-                    >
                         <div
-                            class="whitespace-pre-wrap rounded-2xl border border-zinc-800 px-3 py-2.5 text-sm leading-6 shadow-sm shadow-black/20 sm:px-4 sm:py-3"
-                            :class="message.role === 'user'
-                                ? 'ml-auto max-w-[86%] bg-zinc-700/70 text-zinc-100'
-                                : 'max-w-full bg-zinc-900/80 text-zinc-100'"
+                            v-for="(message, index) in messages"
+                            :key="message.id ? `msg-${message.id}` : `msg-${index}-${message.created_at}`"
+                            class="mb-4"
                         >
-                            {{ message.content }}
+                            <div
+                                class="rounded-2xl border border-zinc-800 px-3 py-2.5 text-sm leading-6 shadow-sm shadow-black/20 sm:px-4 sm:py-3"
+                                :class="message.role === 'user'
+                                    ? 'ml-auto max-w-[86%] bg-zinc-700/70 text-zinc-100'
+                                    : 'max-w-full bg-zinc-900/80 text-zinc-100'"
+                            >
+                                <div
+                                    class="markdown-body space-y-2 wrap-break-word text-[15px] leading-relaxed [&_a]:text-sky-400 [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_h1]:mb-2 [&_h1]:mt-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_h3]:text-base [&_h3]:font-semibold [&_h4]:mb-1 [&_h4]:mt-2 [&_h4]:text-sm [&_h4]:font-semibold [&_hr]:my-4 [&_hr]:border-zinc-600 [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_pre]:text-xs [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-700 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+                                    v-html="formatMessageContent(message.content)"
+                                ></div>
+                            </div>
                         </div>
-                    </div>
 
                         <div class="mt-5 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-4 text-sm text-zinc-300">
-                            <p class="font-medium text-zinc-100">Want to continue this conversation?</p>
+                            <p class="font-medium text-zinc-100">Continue on SuGanta AI</p>
                             <p class="mt-1 text-zinc-400">
-                                {{ isAuthenticated
-                                    ? 'Open chat dashboard to continue with full features.'
-                                    : 'Login to access more features and continue with the same chat style.' }}
+                                Open the full chat app to start a new conversation with the same models and tools.
                             </p>
                             <a
-                                href="/"
-                                class="mt-3 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white"
+                                :href="siteChatUrl"
+                                class="mt-3 inline-flex items-center rounded-lg border border-emerald-700/60 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
                             >
-                                {{ isAuthenticated ? 'Open chat' : 'Login to continue' }}
+                                Go to chat at ai.suganta.com
                             </a>
                         </div>
                     </div>
                     <div v-else class="flex min-h-[55vh] items-center justify-center">
                         <div class="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 text-center sm:p-8">
                             <p class="text-2xl font-semibold text-zinc-100">{{ statusText }}</p>
-                            <p class="mt-3 text-sm text-zinc-400">Open a valid shared chat link, or login to start your own conversation.</p>
+                            <p class="mt-3 text-sm text-zinc-400">Open a valid shared chat link, or go to SuGanta AI to start your own conversation.</p>
                             <a
-                                href="/"
-                                class="mt-5 inline-flex items-center rounded-lg border border-zinc-700 bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white"
+                                :href="siteChatUrl"
+                                class="mt-5 inline-flex items-center rounded-lg border border-emerald-700/60 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                             >
-                                {{ isAuthenticated ? 'Go to dashboard' : 'Login' }}
+                                Go to chat
                             </a>
                         </div>
                     </div>
@@ -90,32 +91,14 @@
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { showErrorAlert } from '../utils/alerts';
-import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
+import { formatMessageContent } from '../utils/messageFormat';
+
+const siteChatUrl = 'https://ai.suganta.com';
 
 const route = useRoute();
 const messageContainerRef = ref(null);
 const messages = ref([]);
 const statusText = ref('Loading shared conversation...');
-const isAuthenticated = ref(false);
-
-async function detectAuthState() {
-    try {
-        const response = await fetch('/api/v1/usage', {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-                Accept: 'application/json',
-            },
-        });
-        const data = await parseApiResponse(response);
-        if (loginGatewayRedirectIfNeeded(response, data)) {
-            return;
-        }
-        isAuthenticated.value = response.ok;
-    } catch {
-        isAuthenticated.value = false;
-    }
-}
 
 function setMetaTag(selector, attrName, attrValue, content) {
     const tag = document.querySelector(selector);
@@ -188,8 +171,10 @@ async function loadSharedConversation(shareToken) {
         }
 
         messages.value = (data.messages ?? []).map((item) => ({
+            id: item.id,
             role: item.role,
             content: item.content,
+            created_at: item.created_at,
         }));
         statusText.value = messages.value.length > 0 ? 'Shared conversation loaded' : 'No messages in this shared chat';
 
@@ -211,7 +196,6 @@ async function loadSharedConversation(shareToken) {
 }
 
 onMounted(() => {
-    detectAuthState();
     loadSharedConversation(route.params.shareToken);
 });
 

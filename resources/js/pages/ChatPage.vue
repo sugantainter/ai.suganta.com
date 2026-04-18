@@ -170,9 +170,9 @@
                             class="mb-4"
                         >
                             <div
-                                class="whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6"
+                                class="rounded-2xl px-4 py-3 text-sm leading-6"
                                 :class="message.role === 'user'
-                                    ? 'ml-auto max-w-[86%] bg-zinc-700/70 text-zinc-100'
+                                    ? 'ml-auto max-w-[86%] whitespace-pre-wrap bg-zinc-700/70 text-zinc-100'
                                     : 'max-w-full bg-zinc-900/70 text-zinc-100'"
                             >
                                 <div v-if="message.processing" class="flex items-center gap-2 text-zinc-300">
@@ -183,7 +183,7 @@
                                 </div>
                                 <div
                                     v-else
-                                    class="space-y-2 wrap-break-word"
+                                    class="markdown-body space-y-2 wrap-break-word text-[15px] leading-relaxed [&_a]:text-sky-400 [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_h1]:mb-2 [&_h1]:mt-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_h3]:text-base [&_h3]:font-semibold [&_h4]:mb-1 [&_h4]:mt-2 [&_h4]:text-sm [&_h4]:font-semibold [&_hr]:my-4 [&_hr]:border-zinc-600 [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_pre]:text-xs [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-700 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
                                     v-html="formatMessageContent(message.content)"
                                 ></div>
                                 <p
@@ -503,6 +503,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { showConfirmAlert, showErrorAlert } from '../utils/alerts';
 import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
+import { formatMessageContent } from '../utils/messageFormat';
 import { executeModelRequests } from './chat/compareRunner';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
@@ -681,63 +682,6 @@ async function parseApiResponse(response) {
         }
         throw new Error(rawText || `Request failed: ${response.status}`);
     }
-}
-
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function formatInlineMarkup(value) {
-    return String(value ?? '')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`]+)`/g, '<code class="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-zinc-100">$1</code>');
-}
-
-function formatMessageContent(content) {
-    const escaped = escapeHtml(content).replace(/\r\n/g, '\n').trim();
-    if (escaped === '') {
-        return '';
-    }
-
-    const blocks = escaped.split(/\n{2,}/);
-    const htmlBlocks = blocks.map((block) => {
-        const lines = block.split('\n').map((line) => line.trim()).filter((line) => line !== '');
-        if (lines.length === 0) {
-            return '';
-        }
-
-        const bulletPattern = /^[-*•]\s+/;
-        const numberedPattern = /^\d+\.\s+/;
-        if (lines.every((line) => bulletPattern.test(line))) {
-            const items = lines
-                .map((line) => `<li>${formatInlineMarkup(line.replace(bulletPattern, ''))}</li>`)
-                .join('');
-            return `<ul class="list-disc space-y-1 pl-5">${items}</ul>`;
-        }
-        if (lines.every((line) => numberedPattern.test(line))) {
-            const items = lines
-                .map((line) => `<li>${formatInlineMarkup(line.replace(numberedPattern, ''))}</li>`)
-                .join('');
-            return `<ol class="list-decimal space-y-1 pl-5">${items}</ol>`;
-        }
-
-        const renderedLines = lines.map((line) => {
-            const heading = line.match(/^#{1,3}\s+(.+)$/);
-            if (heading) {
-                return `<p class="font-semibold text-zinc-100">${formatInlineMarkup(heading[1])}</p>`;
-            }
-            return `<p>${formatInlineMarkup(line)}</p>`;
-        }).join('');
-
-        return `<div class="space-y-1">${renderedLines}</div>`;
-    }).filter((block) => block !== '');
-
-    return htmlBlocks.join('');
 }
 
 async function apiRequest(path, options = {}) {
