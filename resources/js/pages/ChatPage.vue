@@ -634,7 +634,11 @@ let copiedAssistantTimer = null;
 const ASYNC_MODE_MAX_MS = 300000;
 const CHAT_SYNC_REQUEST_TIMEOUT_MS = 300000;
 const COMPARE_MAX_PARALLEL_REQUESTS = 8;
-const MAX_CONTEXT_MESSAGES = 12;
+/** Align with server `provider_context_message_limit` (defaults to 24) so follow-ups keep enough prior turns. */
+const MAX_CONTEXT_MESSAGES = 24;
+
+const MULTI_TURN_SYSTEM_HINT =
+    'This is a multi-turn chat. When the latest user message is short, a follow-up, or refers to "that", "it", "the above", "your answer", or similar, resolve it using the earlier messages in this thread.';
 const isSharedView = computed(() => route.name === 'chat.shared');
 const shareTokenFromRoute = computed(() => String(route.params.shareToken ?? '').trim());
 
@@ -979,77 +983,25 @@ function normalizeMessagesForApi(messages) {
 
 function trimConversationContext(messages) {
     const normalized = normalizeMessagesForApi(messages);
-    if (normalized.length <= MAX_CONTEXT_MESSAGES) {
-        return normalized;
+    const maxBody = MAX_CONTEXT_MESSAGES;
+    let body = normalized.length <= maxBody ? [...normalized] : normalized.slice(-maxBody);
+
+    const userCount = body.filter((m) => m.role === 'user').length;
+    const assistantCount = body.filter((m) => m.role === 'assistant').length;
+    const looksLikeFollowUpThread = body.length >= 3 && (userCount >= 2 || (userCount >= 1 && assistantCount >= 1));
+
+    if (looksLikeFollowUpThread && body[0]?.role !== 'system') {
+        const hint = { role: 'system', content: MULTI_TURN_SYSTEM_HINT };
+        const tailBudget = maxBody - 1;
+        const tail = body.length > tailBudget ? body.slice(-tailBudget) : body;
+        body = [hint, ...tail];
     }
-    return normalized.slice(-MAX_CONTEXT_MESSAGES);
+
+    return body;
 }
 
-function shouldUseFocusedContext(text, currentAttachments) {
-    const normalizedText = String(text || '').trim().toLowerCase();
-    if (currentAttachments.length > 0) {
-        return true;
-    }
-
-    if (normalizedText === '') {
-        return false;
-    }
-
-    const explicitHistoryCues = [
-        'continue',
-        'previous',
-        'earlier',
-        'same as before',
-        'as above',
-        'from before',
-        'last answer',
-    ];
-    const asksForHistory = explicitHistoryCues.some((cue) => normalizedText.includes(cue));
-    if (asksForHistory) {
-        return false;
-    }
-
-    // Treat short standalone questions as one-off by default.
-    return normalizedText.length <= 180;
-}
-
-function userExplicitlyWantsFullContext(text) {
-    const normalizedText = String(text || '').trim().toLowerCase();
-    if (normalizedText === '') {
-        return false;
-    }
-
-    const fullContextCues = [
-        'full context',
-        'entire context',
-        'whole chat',
-        'all previous messages',
-        'use history',
-        'previous context',
-        'based on our conversation',
-        'from our chat history',
-    ];
-
-    return fullContextCues.some((cue) => normalizedText.includes(cue));
-}
-
-function buildPayloadMessages(nextMessages, composedUserText, currentAttachments) {
-    if (userExplicitlyWantsFullContext(composedUserText)) {
-        return trimConversationContext(nextMessages);
-    }
-
-    if (!shouldUseFocusedContext(composedUserText, currentAttachments)) {
-        return trimConversationContext(nextMessages);
-    }
-
-    const focusedInstruction = currentAttachments.length > 0
-        ? 'Answer only based on the latest user request and uploaded files/images. Do not include unrelated prior chat context.'
-        : 'Answer only the latest user request unless the user explicitly asks to use previous context.';
-
-    return [
-        { role: 'system', content: focusedInstruction },
-        { role: 'user', content: String(composedUserText || '') },
-    ];
+function buildPayloadMessages(nextMessages) {
+    return trimConversationContext(nextMessages);
 }
 
 async function syncConversationRoute(conversationId) {
@@ -1460,8 +1412,8 @@ async function sendMessage() {
         stream: false,
         temperature: Number(temperature.value),
         response_style: String(responseStyle.value || 'balanced'),
-        messages: buildPayloadMessages(nextMessages, composedUserText, currentAttachments),
-        use_full_context: userExplicitlyWantsFullContext(composedUserText),
+        messages: buildPayloadMessages(nextMessages),
+        use_full_context: true,
         attachments: currentAttachments.map((item) => ({
             name: String(item.name || 'attachment'),
             type: item.type?.startsWith('image/') ? 'image' : (item.textContent ? 'text' : 'file'),
