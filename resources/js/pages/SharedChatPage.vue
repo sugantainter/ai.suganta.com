@@ -28,7 +28,7 @@
                 </div>
             </div>
 
-            <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div ref="messageContainerRef" class="chat-scroll min-h-0 scroll-smooth overflow-y-auto overscroll-contain">
                 <div class="mx-auto w-full max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
                     <div class="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
                         <p class="text-sm text-zinc-300">This is a public snapshot of a conversation.</p>

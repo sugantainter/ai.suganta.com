@@ -15,10 +15,12 @@
 
         <div v-else class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">
+                <label class="sr-only" for="chat-model-select">Model</label>
                 <select
+                    id="chat-model-select"
                     :value="modelValue"
                     :disabled="modelOptions.length === 0 || compareMode"
-                    class="min-h-9 min-w-0 flex-1 rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-zinc-500 sm:max-w-md"
+                    class="min-h-9 min-w-0 flex-1 rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-zinc-500 focus-visible:ring-2 focus-visible:ring-emerald-500/25 sm:max-w-md"
                     @change="$emit('update:modelValue', $event.target.value)"
                 >
                     <option v-for="item in modelOptions" :key="item.model" :value="item.model">
@@ -30,7 +32,7 @@
                 </p>
                 <button
                     type="button"
-                    class="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                    class="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 text-xs font-medium text-zinc-200 outline-none transition hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500/25 disabled:opacity-50"
                     :disabled="shareLoading || !canShare"
                     @click="$emit('share')"
                 >
@@ -38,7 +40,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-800"
+                    class="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 text-xs font-medium text-zinc-200 outline-none transition hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500/25"
                     :aria-expanded="advancedOpen"
                     aria-controls="chat-advanced-controls"
                     @click="advancedOpen = !advancedOpen"

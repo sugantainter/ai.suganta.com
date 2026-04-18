@@ -1,8 +1,8 @@
 <template>
     <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
-        <div class="grid h-full min-h-0" :class="isSharedView ? 'grid-cols-1' : 'md:grid-cols-[260px_1fr]'">
-            <aside v-if="!isSharedView" class="hidden h-full min-h-0 flex-col border-r border-zinc-800 bg-[#171717] md:flex">
-                <div class="shrink-0 space-y-3 border-b border-zinc-800 p-3">
+        <div class="grid h-full min-h-0" :class="isSharedView ? 'grid-cols-1' : 'md:grid-cols-[minmax(260px,280px)_1fr]'">
+            <aside v-if="!isSharedView" class="hidden h-full min-h-0 flex-col border-r border-zinc-800/90 bg-[#0d0d0d] md:flex">
+                <div class="shrink-0 space-y-3 border-b border-zinc-800/80 p-3">
                     <a
                         href="https://www.suganta.com"
                         target="_blank"
@@ -39,16 +39,24 @@
                         </RouterLink>
                     </div>
                     <button
-                        class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
+                        type="button"
+                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-900 shadow-md shadow-black/20 transition hover:bg-zinc-100 active:scale-[0.99]"
                         @click="startNewChat"
                     >
-                        + New chat
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                            <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+                        </svg>
+                        New chat
                     </button>
                     <button
-                        class="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800"
+                        class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-400 transition hover:bg-zinc-800/80 hover:text-zinc-200"
                         type="button"
                         @click="openSearchModal"
                     >
+                        <svg class="h-4 w-4 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="M21 21l-4.3-4.3" stroke-linecap="round" />
+                        </svg>
                         Search chats
                     </button>
                 </div>
@@ -59,11 +67,13 @@
                     <div
                         v-for="conversation in conversations"
                         :key="conversation.id"
-                        class="mb-1 flex items-start gap-1 rounded-lg px-1 py-1 text-sm transition"
-                        :class="currentConversationId === conversation.id ? 'bg-zinc-800' : 'hover:bg-zinc-800/70'"
+                        class="mb-0.5 flex items-start gap-0.5 rounded-xl px-1 py-0.5 text-sm transition"
+                        :class="currentConversationId === conversation.id
+                            ? 'bg-zinc-800/95 ring-1 ring-white/10 shadow-sm shadow-black/30'
+                            : 'hover:bg-zinc-800/60'"
                     >
                         <button
-                            class="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
+                            class="min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                             :class="currentConversationId === conversation.id ? 'text-white' : 'text-zinc-300'"
                             type="button"
                             @click="openConversation(conversation.id)"
@@ -93,7 +103,10 @@
                 </div>
             </aside>
 
-            <section class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
+            <section
+                class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]"
+                aria-label="Chat conversation"
+            >
                 <div class="sticky top-0 z-30 bg-[#212121]">
                     <div class="shrink-0 border-b border-zinc-800 px-3 py-2 md:hidden">
                         <div class="flex items-center justify-between gap-2">
@@ -162,12 +175,18 @@
                     />
                 </div>
 
-                <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <div
+                    ref="messageContainerRef"
+                    class="chat-scroll min-h-0 flex-1 scroll-smooth overflow-y-auto overscroll-contain"
+                    role="log"
+                    aria-live="polite"
+                    aria-relevant="additions text"
+                >
                     <div v-if="messages.length">
                         <article
                             v-for="(message, index) in messages"
                             :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
-                            class="group/msg border-b border-zinc-800/40 last:border-b-0"
+                            class="group/msg border-b border-zinc-800/35 transition-colors duration-200 last:border-b-0"
                             :class="message.role === 'user' ? 'bg-[#2f2f2f]' : 'bg-[#212121]'"
                         >
                             <div class="mx-auto flex max-w-3xl gap-3 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6">
@@ -186,11 +205,13 @@
                                     </div>
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <div v-if="message.processing" class="flex items-center gap-2 text-zinc-400">
-                                        <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400"></span>
-                                        <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:140ms]"></span>
-                                        <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:280ms]"></span>
-                                        <span class="ml-1 text-sm text-zinc-400">Thinking…</span>
+                                    <div v-if="message.processing" class="flex items-center gap-3 py-0.5 text-zinc-400">
+                                        <span class="flex gap-1.5" aria-hidden="true">
+                                            <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:0ms]"></span>
+                                            <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:160ms]"></span>
+                                            <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:320ms]"></span>
+                                        </span>
+                                        <span class="text-sm font-medium tracking-tight text-zinc-500">Generating</span>
                                     </div>
                                     <template v-else>
                                         <div
@@ -299,28 +320,33 @@
                     </div>
                     <div v-else class="flex min-h-[calc(100dvh-22rem)] flex-col items-center justify-center px-4 py-12 sm:px-6">
                         <div class="w-full max-w-2xl text-center">
-                            <p class="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
+                            <p class="bg-linear-to-b from-zinc-50 to-zinc-400 bg-clip-text text-3xl font-semibold tracking-tight text-transparent sm:text-[2.35rem] sm:leading-tight">
                                 What can I help with?
                             </p>
-                            <p class="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-zinc-500">
-                                Ask a question, paste code, or pick a suggestion below. Same flow you know from modern chat apps — Enter sends, Shift + Enter adds a new line.
+                            <p class="mx-auto mt-4 max-w-md text-sm leading-relaxed text-zinc-500">
+                                Enterprise-grade multi-model chat. Ask anything, upload files, or start from a suggestion.
                             </p>
-                            <div class="mx-auto mt-8 grid max-w-xl gap-2 sm:grid-cols-2">
+                            <div class="mx-auto mt-10 grid max-w-xl gap-2.5 sm:grid-cols-2">
                                 <button
                                     v-for="(prompt, idx) in starterPrompts"
                                     :key="idx"
                                     type="button"
-                                    class="rounded-xl border border-zinc-700/80 bg-zinc-800/40 px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800/70"
+                                    class="group flex items-start gap-3 rounded-2xl border border-zinc-700/70 bg-zinc-800/35 px-4 py-3.5 text-left text-sm text-zinc-200 shadow-sm shadow-black/10 transition hover:border-zinc-600 hover:bg-zinc-800/65 hover:shadow-md"
                                     @click="applyStarterPrompt(prompt)"
                                 >
-                                    {{ prompt }}
+                                    <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-700/80 text-zinc-400 transition group-hover:bg-emerald-950/50 group-hover:text-emerald-300">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                            <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </span>
+                                    <span class="min-w-0 leading-snug">{{ prompt }}</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="shrink-0 border-t border-zinc-800 bg-[#212121] px-4 py-4">
+                <div class="shrink-0 border-t border-zinc-800/90 bg-[#212121] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.45)]">
                     <div class="mx-auto w-full max-w-3xl">
                         <ConversationUploadsModal
                             :open="uploadsModalOpen"
@@ -358,7 +384,7 @@
                                 Async mode
                             </span>
                         </div>
-                        <div class="rounded-[1.75rem] border border-zinc-600/50 bg-[#303030] px-3 py-3 shadow-inner shadow-black/20 sm:rounded-full sm:py-2">
+                        <div class="rounded-[1.75rem] border border-zinc-600/50 bg-[#303030] px-3 py-3 shadow-inner shadow-black/20 transition-[border-color,box-shadow] duration-200 focus-within:border-zinc-500/70 focus-within:shadow-[0_0_0_1px_rgba(16,185,129,0.12),inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-full sm:py-2">
                             <div v-if="attachments.length && !isSharedView" class="mb-3 flex flex-wrap gap-2">
                                 <div
                                     v-for="item in attachments"
@@ -450,7 +476,7 @@
                                 <span>Listening... speak now</span>
                             </div>
                             <p v-if="!isSharedView" class="mt-2 px-1 text-center text-[11px] text-zinc-500">
-                                Enter to send · Shift + Enter for new line
+                                Enter to send · Shift + Enter for new line · Esc to leave the text box
                             </p>
                         </div>
                     </div>
@@ -484,8 +510,8 @@
             class="fixed inset-0 z-70 bg-black/70 md:hidden"
             @click.self="mobileHistoryOpen = false"
         >
-            <div class="absolute left-0 top-0 flex h-full w-[86%] max-w-sm flex-col border-r border-zinc-800 bg-[#171717]">
-                <div class="shrink-0 space-y-2 border-b border-zinc-800 p-3">
+            <div class="absolute left-0 top-0 flex h-full w-[86%] max-w-sm flex-col border-r border-zinc-800/90 bg-[#0d0d0d] shadow-2xl shadow-black/60">
+                <div class="shrink-0 space-y-2 border-b border-zinc-800/80 p-3">
                     <div class="flex items-center justify-between">
                         <p class="text-xs uppercase tracking-wide text-zinc-500">Recent chats</p>
                         <button
@@ -497,22 +523,27 @@
                         </button>
                     </div>
                     <button
-                        class="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium hover:bg-zinc-700"
                         type="button"
+                        class="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white px-3 py-2.5 text-sm font-semibold text-zinc-900 shadow-md transition hover:bg-zinc-100 active:scale-[0.99]"
                         @click="startNewChat"
                     >
-                        + New chat
+                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+                            <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+                        </svg>
+                        New chat
                     </button>
                 </div>
                 <div class="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2" @scroll="handleHistoryScroll">
                     <div
                         v-for="conversation in conversations"
                         :key="`mobile-${conversation.id}`"
-                        class="mb-1 flex items-start gap-1 rounded-lg px-1 py-1 text-sm transition"
-                        :class="currentConversationId === conversation.id ? 'bg-zinc-800' : 'hover:bg-zinc-800/70'"
+                        class="mb-0.5 flex items-start gap-0.5 rounded-xl px-1 py-0.5 text-sm transition"
+                        :class="currentConversationId === conversation.id
+                            ? 'bg-zinc-800/95 ring-1 ring-white/10'
+                            : 'hover:bg-zinc-800/60'"
                     >
                         <button
-                            class="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
+                            class="min-w-0 flex-1 rounded-lg px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                             :class="currentConversationId === conversation.id ? 'text-white' : 'text-zinc-300'"
                             type="button"
                             @click="openConversation(conversation.id)"
@@ -562,10 +593,10 @@ const assistantMarkdownHtmlClass =
     'markdown-body space-y-2 wrap-break-word text-[15px] leading-relaxed text-zinc-100 [&_a]:text-sky-400 [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_h1]:mb-2 [&_h1]:mt-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_h3]:text-base [&_h3]:font-semibold [&_h4]:mb-1 [&_h4]:mt-2 [&_h4]:text-sm [&_h4]:font-semibold [&_hr]:my-4 [&_hr]:border-zinc-600 [&_img]:my-3 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-zinc-700/80 [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_pre]:text-xs [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-700 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5';
 
 const starterPrompts = [
-    'Explain a complex topic in simple terms',
-    'Help me debug or improve this code',
-    'Draft a concise email or message for work',
-    'Suggest ideas for a creative weekend project',
+    'Summarize a complex topic for a non-expert audience',
+    'Review my code for bugs, edge cases, and clearer structure',
+    'Draft a professional email or Slack update for my team',
+    'Brainstorm product or marketing ideas with pros and cons',
 ];
 
 const conversations = ref([]);
@@ -2100,6 +2131,16 @@ function handleHistoryScroll(event) {
     }
 }
 
+function handleChatGlobalKeydown(event) {
+    if (isSharedView.value) {
+        return;
+    }
+    if (event.key === 'Escape' && composerInputRef.value === document.activeElement) {
+        composerInputRef.value.blur();
+        event.preventDefault();
+    }
+}
+
 watch(inputMessage, () => {
     void nextTick(() => {
         adjustComposerHeight();
@@ -2133,6 +2174,7 @@ watch(searchQuery, (value) => {
 });
 
 onBeforeUnmount(() => {
+    document.removeEventListener('keydown', handleChatGlobalKeydown);
     chatPollCancelled = true;
     if (searchDebounceTimer) {
         clearTimeout(searchDebounceTimer);
@@ -2150,6 +2192,8 @@ onMounted(() => {
         loadSharedConversation(shareTokenFromRoute.value);
         return;
     }
+
+    document.addEventListener('keydown', handleChatGlobalKeydown);
 
     loadBootstrapData().then(async () => {
         const conversationIdFromRoute = parseConversationId(route.params.conversationId);
