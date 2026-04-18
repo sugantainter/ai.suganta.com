@@ -186,83 +186,105 @@
                         <article
                             v-for="(message, index) in messages"
                             :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
-                            class="group/msg border-b border-zinc-800/35 transition-colors duration-200 last:border-b-0"
-                            :class="message.role === 'user' ? 'bg-[#262626]' : 'bg-[#212121]'"
+                            class="group/msg border-b border-zinc-800/25 bg-[#212121] transition-colors duration-200 last:border-b-0"
                         >
-                            <div class="mx-auto flex max-w-3xl gap-3 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6">
-                                <div class="flex w-7 shrink-0 justify-center sm:w-8" aria-hidden="true">
+                            <div class="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-5">
+                                <div
+                                    v-if="message.processing"
+                                    class="flex items-center gap-3 py-1 text-zinc-400"
+                                    aria-label="Assistant is generating"
+                                >
+                                    <span class="flex gap-1.5" aria-hidden="true">
+                                        <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:0ms]"></span>
+                                        <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:160ms]"></span>
+                                        <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:320ms]"></span>
+                                    </span>
+                                    <span class="text-sm font-medium tracking-tight text-zinc-500">Generating</span>
+                                </div>
+                                <template v-else>
                                     <div
                                         v-if="message.role === 'user'"
-                                        class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-amber-950/80 text-[9px] font-bold uppercase tracking-wide text-amber-100 shadow-sm shadow-black/25 ring-1 ring-amber-800/50 sm:h-8 sm:w-8 sm:text-[10px]"
+                                        class="flex flex-col items-end gap-2"
                                     >
-                                        You
-                                    </div>
-                                    <div
-                                        v-else
-                                        class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-emerald-950/80 text-[10px] font-bold text-emerald-200 ring-1 ring-emerald-800/60 sm:h-8 sm:w-8"
-                                    >
-                                        AI
-                                    </div>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <div v-if="message.processing" class="flex items-center gap-3 py-0.5 text-zinc-400">
-                                        <span class="flex gap-1.5" aria-hidden="true">
-                                            <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:0ms]"></span>
-                                            <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:160ms]"></span>
-                                            <span class="chat-thinking-dot inline-block h-2 w-2 rounded-full bg-zinc-400 [animation-delay:320ms]"></span>
-                                        </span>
-                                        <span class="text-sm font-medium tracking-tight text-zinc-500">Generating</span>
-                                    </div>
-                                    <template v-else>
                                         <div
-                                            v-if="message.role === 'user'"
-                                            class="rounded-2xl border border-zinc-600/30 bg-zinc-800/45 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-4"
+                                            class="max-w-[min(100%,28rem)] rounded-[1.35rem] border border-zinc-700/45 bg-zinc-800/95 px-4 py-3 text-left shadow-sm shadow-black/20 sm:px-4 sm:py-3.5"
+                                            aria-label="Your message"
                                         >
-                                            <div class="wrap-break-word whitespace-pre-wrap text-[15px] leading-7 text-zinc-50">
+                                            <div class="wrap-break-word whitespace-pre-wrap text-[15px] leading-7 text-zinc-100">
                                                 {{ message.content }}
                                             </div>
                                         </div>
                                         <div
-                                            v-else
+                                            v-if="message.attachments?.length"
+                                            class="flex max-w-[min(100%,28rem)] flex-wrap justify-end gap-2"
+                                        >
+                                            <div
+                                                v-for="attachment in message.attachments"
+                                                :key="`${attachment.name}-${attachment.size || 0}`"
+                                                class="flex items-center gap-2 rounded-xl border border-zinc-600/50 bg-zinc-900/60 px-2 py-1 text-xs text-zinc-300"
+                                            >
+                                                <img
+                                                    v-if="attachment.type?.startsWith('image/') && attachment.dataUrl"
+                                                    :src="attachment.dataUrl"
+                                                    :alt="attachment.name"
+                                                    class="h-8 w-8 rounded object-cover"
+                                                >
+                                                <div
+                                                    v-else
+                                                    class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
+                                                >
+                                                    FILE
+                                                </div>
+                                                <span class="max-w-44 truncate">{{ attachment.name }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-else
+                                        class="min-w-0 text-left"
+                                        aria-label="Assistant reply"
+                                    >
+                                        <div
                                             :class="assistantMarkdownHtmlClass"
                                             v-html="formatMessageContent(message.content)"
                                             @click.capture="handleMarkdownCodeCopyClick"
                                         ></div>
                                         <p
-                                            v-if="message.role === 'assistant' && (message.model || message.provider)"
-                                            class="mt-3 text-[11px] text-zinc-500"
+                                            v-if="message.model || message.provider"
+                                            class="mt-3 text-[11px] text-zinc-600"
                                         >
                                             {{ message.model || 'Assistant' }}<span v-if="message.provider"> · {{ message.provider }}</span>
                                         </p>
-                                    </template>
-                                    <div
-                                        v-if="message.attachments?.length"
-                                        class="mt-3 flex flex-wrap gap-2"
-                                    >
-                                        <div
-                                            v-for="attachment in message.attachments"
-                                            :key="`${attachment.name}-${attachment.size || 0}`"
-                                            class="flex items-center gap-2 rounded-lg border border-zinc-600/60 bg-zinc-900/50 px-2 py-1 text-xs text-zinc-300"
-                                        >
-                                            <img
-                                                v-if="attachment.type?.startsWith('image/') && attachment.dataUrl"
-                                                :src="attachment.dataUrl"
-                                                :alt="attachment.name"
-                                                class="h-8 w-8 rounded object-cover"
-                                            >
-                                            <div
-                                                v-else
-                                                class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
-                                            >
-                                                FILE
-                                            </div>
-                                            <span class="max-w-44 truncate">{{ attachment.name }}</span>
-                                        </div>
                                     </div>
+                                </template>
+                                <div
+                                    v-if="message.attachments?.length && message.role !== 'user'"
+                                    class="mt-3 flex flex-wrap gap-2"
+                                >
                                     <div
-                                        v-if="!isSharedView && message.role === 'assistant' && !message.processing"
-                                        class="mt-3 flex flex-wrap items-center gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100"
+                                        v-for="attachment in message.attachments"
+                                        :key="`${attachment.name}-${attachment.size || 0}`"
+                                        class="flex items-center gap-2 rounded-lg border border-zinc-600/60 bg-zinc-900/50 px-2 py-1 text-xs text-zinc-300"
                                     >
+                                        <img
+                                            v-if="attachment.type?.startsWith('image/') && attachment.dataUrl"
+                                            :src="attachment.dataUrl"
+                                            :alt="attachment.name"
+                                            class="h-8 w-8 rounded object-cover"
+                                        >
+                                        <div
+                                            v-else
+                                            class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
+                                        >
+                                            FILE
+                                        </div>
+                                        <span class="max-w-44 truncate">{{ attachment.name }}</span>
+                                    </div>
+                                </div>
+                                <div
+                                    v-if="!isSharedView && message.role === 'assistant' && !message.processing"
+                                    class="mt-3 flex flex-wrap items-center justify-start gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100"
+                                >
                                         <button
                                             class="rounded-lg border border-zinc-600/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
                                             type="button"
@@ -310,7 +332,6 @@
                                             Continue
                                         </button>
                                     </div>
-                                </div>
                             </div>
                         </article>
                         <div v-if="isSharedView" class="mx-auto max-w-3xl px-4 pb-8 pt-2 sm:px-6">
