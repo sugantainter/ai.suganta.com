@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\AI\Exceptions\ProviderRequestException;
 use App\AI\Exceptions\TokenLimitExceededException;
 use App\AI\Exceptions\TooManyConcurrentRequestsException;
-use App\AI\Exceptions\ProviderRequestException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ChatRequest;
 use App\Jobs\ProcessAsyncChatJob;
@@ -32,6 +32,11 @@ class ChatController extends Controller
 
         $tenantId = (int) $request->attributes->get('tenant_id');
         $apiKeyId = $request->attributes->get('api_key_id');
+
+        if ($payload['stream']) {
+            return $this->streamChatSse($tenantId, $apiKeyId, $payload);
+        }
+
         try {
             $result = $this->chatService->handle($tenantId, $apiKeyId, $payload);
         } catch (TokenLimitExceededException $exception) {
@@ -42,6 +47,7 @@ class ChatController extends Controller
                 'provider' => $payload['provider'] ?? null,
                 'error' => $exception->getMessage(),
             ]);
+
             return response()->json([
                 'message' => $exception->getMessage(),
                 'code' => 'token_limit_exceeded',
@@ -54,6 +60,7 @@ class ChatController extends Controller
                 'provider' => $payload['provider'] ?? null,
                 'error' => $exception->getMessage(),
             ]);
+
             return response()->json([
                 'message' => $exception->getMessage(),
                 'code' => 'chat_concurrency_limited',
@@ -68,6 +75,7 @@ class ChatController extends Controller
                 'provider_status' => $exception->statusCode,
                 'error' => $exception->getMessage(),
             ]);
+
             return response()->json([
                 'message' => $exception->clientMessage(),
                 'code' => $exception->errorCode(),
@@ -85,6 +93,7 @@ class ChatController extends Controller
                 'exception' => $exception::class,
             ]);
             $async = $this->enqueueAsyncChat($tenantId, $apiKeyId, $payload);
+
             return response()->json([
                 'message' => 'Provider is busy. Request moved to async processing.',
                 'code' => 'chat_async_queued',
@@ -124,34 +133,157 @@ class ChatController extends Controller
                 'error' => $exception->getMessage(),
                 'exception' => $exception::class,
             ]);
+
             return response()->json([
                 'message' => 'Unable to process chat request at this time.',
                 'code' => 'chat_request_failed',
             ], 502);
         }
 
-        if (! $payload['stream']) {
-            return response()->json([
-                'conversation_id' => $result['conversation_id'] ?? null,
-                'provider' => $result['provider'],
-                'model' => $result['model'],
-                'message' => $result['content'],
-                'usage' => $result['usage'],
-            ]);
-        }
+        return response()->json([
+            'conversation_id' => $result['conversation_id'] ?? null,
+            'provider' => $result['provider'],
+            'model' => $result['model'],
+            'message' => $result['content'],
+            'usage' => $result['usage'],
+        ]);
+    }
 
-        return response()->stream(function () use ($result): void {
-            echo 'data: '.json_encode([
-                'type' => 'message',
-                'conversation_id' => $result['conversation_id'] ?? null,
-                'content' => $result['content'],
-            ], JSON_UNESCAPED_UNICODE)."\n\n";
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function streamChatSse(int $tenantId, ?int $apiKeyId, array $payload): StreamedResponse
+    {
+        return response()->stream(function () use ($tenantId, $apiKeyId, $payload): void {
+            $emit = function (array $event): void {
+                echo 'data: '.json_encode($event, JSON_UNESCAPED_UNICODE)."\n\n";
+                if (function_exists('ob_get_level') && ob_get_level() > 0) {
+                    @ob_flush();
+                }
+                @flush();
+            };
+
+            try {
+                $this->chatService->handleStreaming($tenantId, $apiKeyId, $payload, $emit);
+            } catch (TokenLimitExceededException $exception) {
+                Log::warning('Chat stream blocked by token limit.', [
+                    'tenant_id' => $tenantId,
+                    'api_key_id' => $apiKeyId,
+                    'model' => $payload['model'] ?? null,
+                    'provider' => $payload['provider'] ?? null,
+                    'error' => $exception->getMessage(),
+                ]);
+                $emit([
+                    'type' => 'error',
+                    'code' => 'token_limit_exceeded',
+                    'message' => $exception->getMessage(),
+                ]);
+            } catch (TooManyConcurrentRequestsException $exception) {
+                Log::warning('Chat stream throttled by concurrency guard.', [
+                    'tenant_id' => $tenantId,
+                    'api_key_id' => $apiKeyId,
+                    'model' => $payload['model'] ?? null,
+                    'provider' => $payload['provider'] ?? null,
+                    'error' => $exception->getMessage(),
+                ]);
+                $emit([
+                    'type' => 'error',
+                    'code' => 'chat_concurrency_limited',
+                    'message' => $exception->getMessage(),
+                ]);
+            } catch (ProviderRequestException $exception) {
+                Log::warning('Chat stream provider returned request error.', [
+                    'tenant_id' => $tenantId,
+                    'api_key_id' => $apiKeyId,
+                    'model' => $payload['model'] ?? null,
+                    'provider' => $payload['provider'] ?? null,
+                    'provider_name' => $exception->provider,
+                    'provider_status' => $exception->statusCode,
+                    'error' => $exception->getMessage(),
+                ]);
+                $emit([
+                    'type' => 'error',
+                    'code' => $exception->errorCode(),
+                    'message' => $exception->clientMessage(),
+                    'provider' => $exception->provider,
+                    'provider_status' => $exception->statusCode,
+                ]);
+            } catch (ConnectionException $exception) {
+                Log::warning('Chat stream provider connection/timeout failure.', [
+                    'tenant_id' => $tenantId,
+                    'api_key_id' => $apiKeyId,
+                    'model' => $payload['model'] ?? null,
+                    'provider' => $payload['provider'] ?? null,
+                    'error' => $exception->getMessage(),
+                    'exception' => $exception::class,
+                ]);
+                $asyncPayload = $payload;
+                $asyncPayload['stream'] = false;
+                $async = $this->enqueueAsyncChat($tenantId, $apiKeyId, $asyncPayload);
+                $emit([
+                    'type' => 'error',
+                    'code' => 'chat_async_queued',
+                    'message' => 'Provider is busy. Request moved to async processing.',
+                    'job_id' => $async['job_id'],
+                    'status' => $async['status'],
+                ]);
+            } catch (\RuntimeException $exception) {
+                $message = (string) $exception->getMessage();
+                if (str_starts_with($message, 'No provider succeeded for this model.')) {
+                    $isModelUnavailable = str_contains(strtolower($message), 'model not found');
+                    Log::warning('Chat stream exhausted all provider attempts.', [
+                        'tenant_id' => $tenantId,
+                        'api_key_id' => $apiKeyId,
+                        'model' => $payload['model'] ?? null,
+                        'provider' => $payload['provider'] ?? null,
+                        'error' => $message,
+                        'exception' => $exception::class,
+                    ]);
+                    $emit([
+                        'type' => 'error',
+                        'code' => $isModelUnavailable ? 'provider_model_unavailable' : 'provider_attempts_failed',
+                        'message' => $isModelUnavailable
+                            ? 'Selected model is currently unavailable on the provider. Please choose another model.'
+                            : 'All provider attempts failed for this model. Please retry or switch model.',
+                    ]);
+                } else {
+                    Log::error('Chat stream runtime failure.', [
+                        'tenant_id' => $tenantId,
+                        'api_key_id' => $apiKeyId,
+                        'error' => $message,
+                        'exception' => $exception::class,
+                    ]);
+                    $emit([
+                        'type' => 'error',
+                        'code' => 'chat_request_failed',
+                        'message' => $message,
+                    ]);
+                }
+            } catch (\Throwable $exception) {
+                Log::error('Chat stream failed.', [
+                    'tenant_id' => $tenantId,
+                    'api_key_id' => $apiKeyId,
+                    'model' => $payload['model'] ?? null,
+                    'provider' => $payload['provider'] ?? null,
+                    'error' => $exception->getMessage(),
+                    'exception' => $exception::class,
+                ]);
+                $emit([
+                    'type' => 'error',
+                    'code' => 'chat_request_failed',
+                    'message' => 'Unable to process chat request at this time.',
+                ]);
+            }
+
             echo "data: [DONE]\n\n";
-            ob_flush();
-            flush();
+            if (function_exists('ob_get_level') && ob_get_level() > 0) {
+                @ob_flush();
+            }
+            @flush();
         }, 200, [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
         ]);
     }
@@ -164,6 +296,7 @@ class ChatController extends Controller
 
         $tenantId = (int) $request->attributes->get('tenant_id');
         $apiKeyId = $request->attributes->get('api_key_id');
+
         return response()->json($this->enqueueAsyncChat($tenantId, $apiKeyId, $payload), 202);
     }
 
@@ -187,6 +320,7 @@ class ChatController extends Controller
         $pollAfterMs = $status === 'queued' ? 1400 : 900;
 
         $jobStatus['poll_after_ms'] = $pollAfterMs;
+
         return response()->json($jobStatus);
     }
 
@@ -448,5 +582,4 @@ class ChatController extends Controller
             'tenant_id' => $tenantId,
         ];
     }
-
 }

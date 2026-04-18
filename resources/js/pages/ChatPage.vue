@@ -577,6 +577,7 @@ import { showConfirmAlert, showErrorAlert } from '../utils/alerts';
 import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
 import { formatMessageContent, handleMarkdownCodeCopyClick } from '../utils/messageFormat';
 import { runAssistantTypewriter } from '../utils/assistantTypewriter';
+import { fetchChatSseJson } from '../utils/chatStreamRequest';
 import { executeModelRequests } from './chat/compareRunner';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
@@ -964,7 +965,7 @@ async function sendChatAsAsync(payload) {
     statusText.value = 'Server busy. Switching to async mode...';
     const started = await apiRequest('/api/v1/chat/async', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, stream: false }),
         timeoutMs: 10000,
     });
     const jobId = String(started?.job_id || '');
@@ -1292,12 +1293,22 @@ function setAssistantMessageAt(baseIndex, modelIndex, message) {
     messages.value = [...messages.value];
 }
 
-async function revealAssistantMessage(index, finalMessage, session) {
+async function revealAssistantMessage(index, finalMessage, session, revealOptions = {}) {
     const current = messages.value[index];
     if (!current) {
         return;
     }
     const fullText = String(finalMessage.content ?? '');
+    if (revealOptions.skipTypewriter) {
+        messages.value.splice(index, 1, {
+            ...current,
+            ...finalMessage,
+            content: fullText,
+            processing: false,
+        });
+        await scrollMessagesToBottom();
+        return;
+    }
     messages.value.splice(index, 1, {
         ...current,
         ...finalMessage,
@@ -1440,7 +1451,7 @@ async function sendMessage() {
     const payloadBase = {
         conversation_id: currentConversationId.value ?? undefined,
         save_history: true,
-        stream: false,
+        stream: !compareMode.value,
         temperature: Number(temperature.value),
         response_style: String(responseStyle.value || 'balanced'),
         messages: buildPayloadMessages(nextMessages),
@@ -1461,6 +1472,23 @@ async function sendMessage() {
         const selectedModelKeys = [...activeModelKeys.value];
         const totalModels = selectedModelKeys.length;
         let completedCount = 0;
+        const streamPerform = (payload) => performChatRequest(payload, !compareMode.value
+            ? {
+                onStreamDelta: (delta) => {
+                    const idx = baseIndex;
+                    const m = messages.value[idx];
+                    if (!m || m.role !== 'assistant') {
+                        return;
+                    }
+                    messages.value.splice(idx, 1, {
+                        ...m,
+                        content: String(m.content || '') + delta,
+                        processing: true,
+                    });
+                },
+            }
+            : {});
+
         const {
             workingConversationId,
             firstError,
@@ -1471,7 +1499,7 @@ async function sendMessage() {
             payloadBase,
             initialConversationId: currentConversationId.value ?? null,
             maxParallelRequests: COMPARE_MAX_PARALLEL_REQUESTS,
-            performChatRequest,
+            performChatRequest: streamPerform,
             onModelStart: ({ modelIndex }) => {
                 updateModelProgressStatus(compareMode.value, completedCount, totalModels, modelIndex);
             },
@@ -1480,6 +1508,7 @@ async function sendMessage() {
                     baseIndex + modelIndex,
                     buildAssistantSuccessMessage(data, selectedModel),
                     typingSession,
+                    { skipTypewriter: Boolean(data?._streamed) },
                 );
                 completedCount += 1;
                 updateModelProgressStatus(compareMode.value, completedCount, totalModels);
@@ -1534,7 +1563,47 @@ async function sendMessage() {
     }
 }
 
-async function performChatRequest(payload) {
+async function performChatRequest(payload, streamOptions = {}) {
+    const useSse = Boolean(payload.stream) && typeof streamOptions.onStreamDelta === 'function';
+
+    if (useSse) {
+        try {
+            let data = await fetchChatSseJson('/api/v1/chat', payload, {
+                onDelta: streamOptions.onStreamDelta,
+                timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
+            });
+            if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
+                asyncModeActive.value = true;
+                statusText.value = 'Generating response...';
+                data = await pollAsyncChatJob(String(data.job_id));
+            }
+            return data;
+        } catch (error) {
+            if (String(error?.code || '') === 'chat_async_queued' && String(error?.job_id || '') !== '') {
+                asyncModeActive.value = true;
+                statusText.value = 'Generating response...';
+                return await pollAsyncChatJob(String(error.job_id));
+            }
+            if (!shouldFallbackToAsync(error)) {
+                throw error;
+            }
+            try {
+                return await sendChatAsAsync({ ...payload, stream: false });
+            } catch (asyncError) {
+                if (String(asyncError?.code || '') !== 'async_timeout_sync_retry') {
+                    throw asyncError;
+                }
+                asyncModeActive.value = false;
+                statusText.value = 'Async timed out. Retrying in sync mode...';
+                return await apiRequest('/api/v1/chat', {
+                    method: 'POST',
+                    body: JSON.stringify({ ...payload, stream: false }),
+                    timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
+                });
+            }
+        }
+    }
+
     try {
         let data = await apiRequest('/api/v1/chat', {
             method: 'POST',
@@ -1552,7 +1621,7 @@ async function performChatRequest(payload) {
             throw error;
         }
         try {
-            return await sendChatAsAsync(payload);
+            return await sendChatAsAsync({ ...payload, stream: false });
         } catch (asyncError) {
             if (String(asyncError?.code || '') !== 'async_timeout_sync_retry') {
                 throw asyncError;
@@ -1561,7 +1630,7 @@ async function performChatRequest(payload) {
             statusText.value = 'Async timed out. Retrying in sync mode...';
             return await apiRequest('/api/v1/chat', {
                 method: 'POST',
-                body: JSON.stringify(payload),
+                body: JSON.stringify({ ...payload, stream: false }),
                 timeoutMs: CHAT_SYNC_REQUEST_TIMEOUT_MS,
             });
         }
@@ -1605,7 +1674,7 @@ async function regenerateAssistantReply(assistantIndex) {
         model: model.value,
         conversation_id: currentConversationId.value ?? undefined,
         save_history: true,
-        stream: false,
+        stream: true,
         temperature: Number(temperature.value),
         response_style: String(responseStyle.value || 'balanced'),
         messages: trimConversationContext(baseMessages),
@@ -1614,7 +1683,19 @@ async function regenerateAssistantReply(assistantIndex) {
     };
 
     try {
-        const data = await performChatRequest(payload);
+        const data = await performChatRequest(payload, {
+            onStreamDelta: (delta) => {
+                const m = messages.value[assistantIndex];
+                if (!m || m.role !== 'assistant') {
+                    return;
+                }
+                messages.value.splice(assistantIndex, 1, {
+                    ...m,
+                    content: String(m.content || '') + delta,
+                    processing: true,
+                });
+            },
+        });
         if (data.conversation_id) {
             currentConversationId.value = data.conversation_id;
             await syncConversationRoute(data.conversation_id);
@@ -1628,7 +1709,7 @@ async function regenerateAssistantReply(assistantIndex) {
             model: String(data?.model || model.value || ''),
             feedback: null,
             processing: false,
-        }, typingSession);
+        }, typingSession, { skipTypewriter: Boolean(data?._streamed) });
         await Promise.all([loadConversationList(), loadUsage()]);
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
@@ -1681,7 +1762,7 @@ async function continueAssistantReply(assistantIndex) {
         model: model.value,
         conversation_id: currentConversationId.value ?? undefined,
         save_history: true,
-        stream: false,
+        stream: true,
         temperature: Number(temperature.value),
         response_style: String(responseStyle.value || 'balanced'),
         messages: trimConversationContext(continuationMessages),
@@ -1690,13 +1771,26 @@ async function continueAssistantReply(assistantIndex) {
     };
 
     try {
-        const data = await performChatRequest(payload);
+        const continueIdx = snapshot.length;
+        const data = await performChatRequest(payload, {
+            onStreamDelta: (delta) => {
+                const m = messages.value[continueIdx];
+                if (!m || m.role !== 'assistant') {
+                    return;
+                }
+                messages.value.splice(continueIdx, 1, {
+                    ...m,
+                    content: String(m.content || '') + delta,
+                    processing: true,
+                });
+            },
+        });
         if (data.conversation_id) {
             currentConversationId.value = data.conversation_id;
             await syncConversationRoute(data.conversation_id);
             await loadConversationAssets(data.conversation_id);
         }
-        await revealAssistantMessage(snapshot.length, {
+        await revealAssistantMessage(continueIdx, {
             role: 'assistant',
             content: extractAssistantMessage(data),
             attachments: [],
@@ -1704,7 +1798,7 @@ async function continueAssistantReply(assistantIndex) {
             model: String(data?.model || model.value || ''),
             feedback: null,
             processing: false,
-        }, continueTypingSession);
+        }, continueTypingSession, { skipTypewriter: Boolean(data?._streamed) });
         await Promise.all([loadConversationList(), loadUsage()]);
         chatErrorMessage.value = '';
         rateLimitHint.value = '';

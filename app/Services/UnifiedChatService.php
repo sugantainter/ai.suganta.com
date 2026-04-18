@@ -56,6 +56,7 @@ class UnifiedChatService
                 $this->logRequest($tenantId, $apiKeyId, 'system', $payload, $utilityResponse, 0, null);
                 $this->persistConversationHistory($conversation, $payload, $utilityResponse, 'system');
                 $utilityResponse['conversation_id'] = $conversation->id;
+
                 return $utilityResponse;
             }
             $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
@@ -85,6 +86,7 @@ class UnifiedChatService
 
                 if ($this->isProviderCircuitOpen($providerKey)) {
                     $attemptErrors[] = "{$providerKey}: circuit breaker open";
+
                     continue;
                 }
 
@@ -93,6 +95,7 @@ class UnifiedChatService
                 $providerApiKey = $providerAccess['provider_api_key'] ?? null;
                 if (! $providerApiKey) {
                     $attemptErrors[] = "{$providerKey}: missing provider API key";
+
                     continue;
                 }
 
@@ -132,6 +135,157 @@ class UnifiedChatService
                         'last_error_message' => $exception->getMessage(),
                         'last_used_at' => now(),
                     ])->save();
+                }
+            }
+
+            $summary = $attemptErrors !== []
+                ? ' Attempts: '.implode(' | ', $attemptErrors)
+                : '';
+            if ($lastException instanceof \Throwable) {
+                throw new \RuntimeException('No provider succeeded for this model.'.$summary, previous: $lastException);
+            }
+            throw new \RuntimeException('No provider succeeded for this model.'.$summary);
+        } finally {
+            $this->releaseConcurrencySlots($counterKeys);
+        }
+    }
+
+    /**
+     * Same routing, limits, persistence, and logging as {@see handle()}, but streams assistant
+     * text to the client through the emit callback (delta events plus a final message payload).
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  callable(array<string,mixed>): void  $emit
+     * @return array<string,mixed>
+     */
+    public function handleStreaming(int $tenantId, ?int $apiKeyId, array $payload, callable $emit): array
+    {
+        $counterKeys = $this->acquireConcurrencySlots($tenantId);
+        $streamCommitted = false;
+
+        try {
+            $payload = $this->ensureProviderFromModel($payload);
+            $usageState = $this->getOrCreateUsageState($tenantId);
+            $activeCustomProviderKeys = $this->getActiveCustomProviderKeys($tenantId);
+            $deadlineAt = microtime(true) + max(5, (int) config('ai.max_request_duration_seconds', 20));
+
+            $conversation = $this->resolveConversation($tenantId, $payload);
+            $payload = $this->normalizePayloadAttachments($payload, $tenantId, (int) $conversation->id);
+            $utilityResponse = $this->buildUtilityResponse($payload);
+            if ($utilityResponse !== null) {
+                $this->logRequest($tenantId, $apiKeyId, 'system', $payload, $utilityResponse, 0, null);
+                $this->persistConversationHistory($conversation, $payload, $utilityResponse, 'system');
+                $utilityResponse['conversation_id'] = $conversation->id;
+                $emit([
+                    'type' => 'message',
+                    'conversation_id' => $conversation->id,
+                    'provider' => (string) ($utilityResponse['provider'] ?? 'system'),
+                    'model' => (string) ($utilityResponse['model'] ?? ''),
+                    'message' => (string) ($utilityResponse['content'] ?? ''),
+                    'usage' => (array) ($utilityResponse['usage'] ?? []),
+                ]);
+
+                return $utilityResponse;
+            }
+            $preferred = (string) ($payload['provider'] ?? config('ai.default_provider'));
+            $fallbacks = $payload['fallback_providers'] ?? config('ai.fallback_providers', []);
+            $resolvedModelProvider = $this->resolveProviderForModel((string) ($payload['model'] ?? ''));
+            if ($resolvedModelProvider !== null) {
+                $preferred = $resolvedModelProvider;
+                $fallbacks = [];
+                $payload['provider'] = $resolvedModelProvider;
+            }
+            $providerPayloadBase = $this->buildProviderPayload($payload);
+            $providerPayloadBase = $this->optimizeProviderPayloadForTokenEfficiency($providerPayloadBase, $payload);
+            $providerOrder = collect(array_merge([$preferred], $fallbacks))
+                ->map(fn ($provider) => (string) $provider)
+                ->unique()
+                ->values();
+
+            $lastException = null;
+            $attemptErrors = [];
+            foreach ($providerOrder as $providerKey) {
+                if (microtime(true) >= $deadlineAt) {
+                    $attemptErrors[] = 'request deadline exceeded';
+                    break;
+                }
+
+                if ($this->isProviderCircuitOpen($providerKey)) {
+                    $attemptErrors[] = "{$providerKey}: circuit breaker open";
+
+                    continue;
+                }
+
+                $providerAccess = $this->resolveProviderAccess($providerKey, $activeCustomProviderKeys);
+                $usingCustomProviderKey = (bool) ($providerAccess['using_custom_provider_key'] ?? false);
+                $providerApiKey = $providerAccess['provider_api_key'] ?? null;
+                if (! $providerApiKey) {
+                    $attemptErrors[] = "{$providerKey}: missing provider API key";
+
+                    continue;
+                }
+
+                $providerPayload = $providerPayloadBase;
+                $providerPayload['provider'] = $providerKey;
+                if (! $usingCustomProviderKey) {
+                    $this->assertUserWithinTokenLimit($usageState);
+                }
+
+                $start = microtime(true);
+                try {
+                    $provider = $this->providers->get($providerKey);
+                    $response = $provider->chatStream($providerPayload, $providerApiKey, function (string $delta) use ($emit, &$streamCommitted): void {
+                        if ($delta === '') {
+                            return;
+                        }
+                        $streamCommitted = true;
+                        $emit(['type' => 'delta', 'content' => $delta]);
+                    });
+                    $latencyMs = (int) round((microtime(true) - $start) * 1000);
+                    $usage = (array) ($response['usage'] ?? []);
+
+                    if (! $usingCustomProviderKey) {
+                        $consumedTokens = (int) ($usage['total_tokens'] ?? 0);
+                        $this->storeUsage($tenantId, $consumedTokens);
+                        $usageState->total_tokens = (int) ($usageState->total_tokens ?? 0) + $consumedTokens;
+                    }
+
+                    $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, $response, $latencyMs, null);
+                    $this->resetProviderCircuit($providerKey);
+                    $this->persistConversationHistory($conversation, $payload, $response, $providerKey);
+                    $response['conversation_id'] = $conversation->id;
+
+                    $emit([
+                        'type' => 'message',
+                        'conversation_id' => $conversation->id,
+                        'provider' => (string) ($response['provider'] ?? $providerKey),
+                        'model' => (string) ($response['model'] ?? ''),
+                        'message' => (string) ($response['content'] ?? ''),
+                        'usage' => $usage,
+                    ]);
+
+                    return $response;
+                } catch (\Throwable $exception) {
+                    $this->recordProviderFailure($providerKey);
+                    $lastException = $exception;
+                    $attemptErrors[] = "{$providerKey}: ".$exception->getMessage();
+                    $latencyMs = (int) round((microtime(true) - $start) * 1000);
+                    $this->logRequest($tenantId, $apiKeyId, $providerKey, $providerPayload, [], $latencyMs, $exception->getMessage());
+                    $conversation->forceFill([
+                        'status' => 'error',
+                        'last_error_code' => 'provider_error',
+                        'last_error_message' => $exception->getMessage(),
+                        'last_used_at' => now(),
+                    ])->save();
+
+                    if ($streamCommitted) {
+                        $emit([
+                            'type' => 'error',
+                            'code' => 'provider_stream_failed',
+                            'message' => $exception->getMessage(),
+                        ]);
+                        throw $exception;
+                    }
                 }
             }
 
@@ -346,6 +500,7 @@ class UnifiedChatService
 
         $conversations = $rows->map(function ($conversation) use ($lastAssistantMessages): array {
             $conversationId = (int) ($conversation->id ?? 0);
+
             return [
                 'id' => $conversationId,
                 'subject' => (string) ($conversation->subject ?? ''),
@@ -411,6 +566,7 @@ class UnifiedChatService
 
         $conversations = $rows->map(function ($conversation) use ($lastAssistantMessages): array {
             $conversationId = (int) ($conversation->id ?? 0);
+
             return [
                 'id' => $conversationId,
                 'subject' => (string) ($conversation->subject ?? ''),
@@ -564,6 +720,7 @@ class UnifiedChatService
             }
 
             $systemKey = (string) config("ai.providers.{$provider}.api_key", '');
+
             return trim($systemKey) !== '';
         };
 
@@ -572,6 +729,7 @@ class UnifiedChatService
             if ($provider === '') {
                 return false;
             }
+
             return $isProviderAvailable($provider);
         }));
     }
@@ -791,6 +949,7 @@ class UnifiedChatService
 
         if (! (bool) config('ai.buffer_request_logs_to_redis', true)) {
             RequestLog::query()->create($entry);
+
             return;
         }
 
@@ -802,6 +961,7 @@ class UnifiedChatService
                 throw new \RuntimeException('Unable to encode request log payload.');
             }
             SyncBufferedRequestLogJob::dispatch()->onQueue('ai-sync');
+
             return;
         } catch (\Throwable) {
             // Fallback to legacy cache buffering when Redis list operations are unavailable.
@@ -1035,6 +1195,7 @@ class UnifiedChatService
         $modelProvider = $this->resolveProviderForModel((string) ($payload['model'] ?? ''));
         if ($modelProvider !== null) {
             $payload['provider'] = $modelProvider;
+
             return $payload;
         }
 
@@ -1089,7 +1250,7 @@ class UnifiedChatService
                 'global_key' => $globalKey,
                 'tenant_key' => $tenantKey,
             ]);
-            throw new TooManyConcurrentRequestsException();
+            throw new TooManyConcurrentRequestsException;
         }
 
         return [
@@ -1142,6 +1303,7 @@ class UnifiedChatService
     private function isProviderCircuitOpen(string $provider): bool
     {
         $openUntil = (int) Cache::get($this->providerCircuitOpenKey($provider), 0);
+
         return $openUntil > time();
     }
 
@@ -1270,6 +1432,7 @@ class UnifiedChatService
         }
 
         $tz = (string) config('app.timezone', 'UTC');
+
         return [
             'provider' => 'system',
             'model' => 'server-utility',
@@ -1313,6 +1476,7 @@ class UnifiedChatService
         if ($useFullContext) {
             $maxMessages = max(2, min((int) config('ai.provider_context_message_limit', 24), 80));
             $payload['messages'] = $normalizedMessages->slice(-$maxMessages)->values()->all();
+
             return $payload;
         }
 

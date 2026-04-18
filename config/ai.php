@@ -1,10 +1,21 @@
 <?php
 
+use App\AI\Providers\AnthropicProvider;
+use App\AI\Providers\CohereProvider;
+use App\AI\Providers\DeepSeekProvider;
+use App\AI\Providers\GeminiProvider;
+use App\AI\Providers\GrokProvider;
+use App\AI\Providers\MistralProvider;
+use App\AI\Providers\OpenAIProvider;
+use App\AI\Providers\OpenRouterProvider;
+use App\AI\Providers\PerplexityProvider;
+
 return [
     'default_provider' => env('AI_DEFAULT_PROVIDER', 'openai'),
     'default_model' => env('AI_DEFAULT_MODEL', 'gemini-2.5-flash-lite'),
     'fallback_providers' => array_filter(array_map('trim', explode(',', (string) env('AI_FALLBACK_PROVIDERS', 'openai,gemini,anthropic,grok,deepseek,openrouter,mistral,cohere,perplexity')))),
     'request_timeout_seconds' => (int) env('AI_REQUEST_TIMEOUT_SECONDS', 12),
+    'chat_stream_timeout_seconds' => (int) env('AI_CHAT_STREAM_TIMEOUT_SECONDS', 300),
     'request_retries' => (int) env('AI_REQUEST_RETRIES', 1),
     'retry_delay_ms' => (int) env('AI_RETRY_DELAY_MS', 200),
     'max_request_duration_seconds' => (int) env('AI_MAX_REQUEST_DURATION_SECONDS', 20),
@@ -40,15 +51,15 @@ return [
     'usage_connection' => env('AI_USAGE_DB_CONNECTION', env('AI_DB_CONNECTION', 'ai_mysql')),
     'history_connection' => env('AI_HISTORY_DB_CONNECTION', env('AI_DB_CONNECTION', 'ai_mysql')),
     'adapters' => [
-        'openai' => \App\AI\Providers\OpenAIProvider::class,
-        'gemini' => \App\AI\Providers\GeminiProvider::class,
-        'anthropic' => \App\AI\Providers\AnthropicProvider::class,
-        'grok' => \App\AI\Providers\GrokProvider::class,
-        'deepseek' => \App\AI\Providers\DeepSeekProvider::class,
-        'openrouter' => \App\AI\Providers\OpenRouterProvider::class,
-        'mistral' => \App\AI\Providers\MistralProvider::class,
-        'cohere' => \App\AI\Providers\CohereProvider::class,
-        'perplexity' => \App\AI\Providers\PerplexityProvider::class,
+        'openai' => OpenAIProvider::class,
+        'gemini' => GeminiProvider::class,
+        'anthropic' => AnthropicProvider::class,
+        'grok' => GrokProvider::class,
+        'deepseek' => DeepSeekProvider::class,
+        'openrouter' => OpenRouterProvider::class,
+        'mistral' => MistralProvider::class,
+        'cohere' => CohereProvider::class,
+        'perplexity' => PerplexityProvider::class,
     ],
     'providers' => [
         'openai' => [

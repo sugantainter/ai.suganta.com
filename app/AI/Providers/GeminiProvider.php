@@ -4,11 +4,13 @@ namespace App\AI\Providers;
 
 use App\AI\Contracts\ChatProviderInterface;
 use App\AI\Exceptions\ProviderRequestException;
-use Illuminate\Http\Client\ConnectionException;
+use App\AI\Providers\Concerns\StreamsChatViaSyncFallback;
 use Illuminate\Support\Facades\Http;
 
 class GeminiProvider implements ChatProviderInterface
 {
+    use StreamsChatViaSyncFallback;
+
     public function key(): string
     {
         return 'gemini';

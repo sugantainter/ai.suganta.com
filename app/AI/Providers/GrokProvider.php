@@ -3,6 +3,7 @@
 namespace App\AI\Providers;
 
 use App\AI\Exceptions\ProviderRequestException;
+
 class GrokProvider extends OpenAIProvider
 {
     public function key(): string
@@ -42,6 +43,44 @@ class GrokProvider extends OpenAIProvider
         }
 
         throw new ProviderRequestException($this->key(), 400, 'Grok request failed because no valid model candidate is configured.');
+    }
+
+    /**
+     * @param  callable(string): void  $onDelta
+     * @return array<string, mixed>
+     */
+    public function chatStream(array $payload, string $apiKey, callable $onDelta): array
+    {
+        $requestedModel = trim((string) ($payload['model'] ?? ''));
+        $candidateModels = $this->resolveModelCandidates($requestedModel);
+        $lastException = null;
+
+        foreach ($candidateModels as $candidateModel) {
+            $attemptPayload = $payload;
+            $attemptPayload['model'] = $candidateModel;
+
+            try {
+                return parent::chatStream($attemptPayload, $apiKey, $onDelta);
+            } catch (ProviderRequestException $exception) {
+                $lastException = $exception;
+                if (! $this->isModelNotFoundError($exception)) {
+                    throw $exception;
+                }
+
+                $this->providerLogger($this->key())->warning('Grok stream model candidate unavailable, trying next candidate.', [
+                    'requested_model' => $requestedModel,
+                    'candidate_model' => $candidateModel,
+                    'provider_status' => $exception->statusCode,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        if ($lastException instanceof ProviderRequestException) {
+            throw $lastException;
+        }
+
+        throw new ProviderRequestException($this->key(), 400, 'Grok stream failed because no valid model candidate is configured.');
     }
 
     /**
