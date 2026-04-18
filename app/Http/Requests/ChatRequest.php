@@ -27,7 +27,7 @@ class ChatRequest extends FormRequest
             'use_full_context' => ['nullable', 'boolean'],
             'response_style' => ['nullable', 'string', Rule::in(['concise', 'balanced', 'detailed'])],
             'temperature' => ['nullable', 'numeric', 'between:0,2'],
-            'max_tokens' => ['nullable', 'integer', 'between:1,8192'],
+            'max_tokens' => ['nullable', 'integer', 'min:1', 'max:'.max(1, (int) config('ai.token_optimization.request_max_tokens_upper_bound', 20000))],
             'messages' => ['required', 'array', 'min:1'],
             'messages.*.role' => ['required', 'string', 'in:system,user,assistant'],
             'messages.*.content' => ['required', 'string'],

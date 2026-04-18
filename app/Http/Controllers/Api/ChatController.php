@@ -499,6 +499,7 @@ class ChatController extends Controller
 
         return response()->json([
             'models' => $this->chatService->listAvailableModelsForTenant($tenantId),
+            'chat_token_policy' => $this->chatService->chatTokenPolicySummary(),
         ]);
     }
 

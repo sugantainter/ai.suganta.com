@@ -21,8 +21,6 @@ use Illuminate\Support\Str;
 
 class UnifiedChatService
 {
-    private const DEFAULT_USER_TOKEN_LIMIT = 100000;
-
     private const AI_SUBSCRIPTION_TYPE = 3;
 
     /**
@@ -651,11 +649,12 @@ class UnifiedChatService
         return [
             'tenant_id' => $tenantId,
             'total_tokens' => (int) ($totalUsage->total_tokens ?? 0),
-            'token_limit' => (int) ($totalUsage->token_limit ?? self::DEFAULT_USER_TOKEN_LIMIT),
+            'token_limit' => (int) ($totalUsage->token_limit ?? $this->fallbackUserTokenLimit()),
             'remaining_tokens' => max(
                 0,
-                (int) ($totalUsage->token_limit ?? self::DEFAULT_USER_TOKEN_LIMIT) - (int) ($totalUsage->total_tokens ?? 0)
+                (int) ($totalUsage->token_limit ?? $this->fallbackUserTokenLimit()) - (int) ($totalUsage->total_tokens ?? 0)
             ),
+            'chat_token_policy' => $this->chatTokenPolicySummary(),
             'recent_requests' => $requests->map(fn (RequestLog $log) => [
                 'id' => $log->id,
                 'provider' => $log->provider,
@@ -1132,7 +1131,7 @@ class UnifiedChatService
     private function assertUserWithinTokenLimit(object $usageState): void
     {
         $usedTokens = (int) ($usageState->total_tokens ?? 0);
-        $tokenLimit = (int) ($usageState->token_limit ?? self::DEFAULT_USER_TOKEN_LIMIT);
+        $tokenLimit = (int) ($usageState->token_limit ?? $this->fallbackUserTokenLimit());
 
         if ($usedTokens >= $tokenLimit) {
             throw new TokenLimitExceededException($tokenLimit, $usedTokens);
@@ -1155,10 +1154,57 @@ class UnifiedChatService
 
         $planTokenLimit = (int) ($subscription?->subscriptionPlan?->ai_tokens ?? 0);
 
-        $resolvedLimit = $planTokenLimit > 0 ? $planTokenLimit : self::DEFAULT_USER_TOKEN_LIMIT;
+        $resolvedLimit = $planTokenLimit > 0 ? $planTokenLimit : $this->fallbackUserTokenLimit();
         $this->resolvedTokenLimits[$userId] = $resolvedLimit;
 
         return $resolvedLimit;
+    }
+
+    /**
+     * Default monthly / rolling user token quota when no subscription plan applies.
+     */
+    private function fallbackUserTokenLimit(): int
+    {
+        return max(1000, (int) config('ai.default_user_token_limit', 10000));
+    }
+
+    /**
+     * Hints for clients (ceilings, defaults, user quota) — see config/ai.php token_optimization.
+     *
+     * @return array<string,mixed>
+     */
+    public function chatTokenPolicySummary(): array
+    {
+        $tokenOptimization = (array) config('ai.token_optimization', []);
+        $ceilings = (array) ($tokenOptimization['style_output_token_ceiling'] ?? []);
+        $defaults = (array) ($tokenOptimization['style_default_output_tokens'] ?? []);
+
+        $ceiling = static function (string $style) use ($ceilings): int {
+            $raw = (int) ($ceilings[$style] ?? 0);
+
+            return max(32, $raw > 0 ? $raw : match ($style) {
+                'concise' => 2000,
+                'balanced' => 10000,
+                'detailed' => 20000,
+                default => 10000,
+            });
+        };
+
+        return [
+            'user_total_token_limit_default' => $this->fallbackUserTokenLimit(),
+            'request_max_tokens_upper_bound' => max(32, (int) ($tokenOptimization['request_max_tokens_upper_bound'] ?? 20000)),
+            'style_output_token_ceiling' => [
+                'concise' => $ceiling('concise'),
+                'balanced' => $ceiling('balanced'),
+                'detailed' => $ceiling('detailed'),
+            ],
+            'style_default_output_tokens' => [
+                'concise' => max(32, min((int) ($defaults['concise'] ?? 1024), $ceiling('concise'))),
+                'balanced' => max(32, min((int) ($defaults['balanced'] ?? 4096), $ceiling('balanced'))),
+                'detailed' => max(32, min((int) ($defaults['detailed'] ?? 8192), $ceiling('detailed'))),
+            ],
+            'auto_escalate_balanced_to_detailed_ceiling' => (bool) ($tokenOptimization['auto_escalate_balanced_to_detailed_ceiling'] ?? true),
+        ];
     }
 
     /**
@@ -1512,28 +1558,61 @@ class UnifiedChatService
             return $providerPayload;
         }
 
+        $ceilings = (array) ($tokenOptimization['style_output_token_ceiling'] ?? []);
+        $defaults = (array) ($tokenOptimization['style_default_output_tokens'] ?? []);
+
+        $styleCeiling = static function (string $style) use ($ceilings): int {
+            $raw = (int) ($ceilings[$style] ?? 0);
+
+            return max(32, $raw > 0 ? $raw : match ($style) {
+                'concise' => 2000,
+                'balanced' => 10000,
+                'detailed' => 20000,
+                default => 10000,
+            });
+        };
+
+        $styleDefault = static function (string $style) use ($defaults, $styleCeiling): int {
+            $raw = (int) ($defaults[$style] ?? 0);
+            $cap = $styleCeiling($style);
+            $fallback = match ($style) {
+                'concise' => min(1024, $cap),
+                'balanced' => min(4096, $cap),
+                'detailed' => min(8192, $cap),
+                default => min(4096, $cap),
+            };
+
+            return max(32, min($raw > 0 ? $raw : $fallback, $cap));
+        };
+
         $latestUserMessage = $this->extractLatestUserMessage((array) ($originalPayload['messages'] ?? [])) ?? '';
         $wantsDetailedResponse = $this->wantsDetailedResponse($latestUserMessage);
         $requiresComplexResponse = $this->requiresComplexResponse($latestUserMessage);
         $responseStyle = strtolower(trim((string) ($originalPayload['response_style'] ?? 'balanced')));
+        if (! in_array($responseStyle, ['concise', 'balanced', 'detailed'], true)) {
+            $responseStyle = 'balanced';
+        }
 
-        $defaultMaxTokens = max(32, (int) ($tokenOptimization['default_max_tokens'] ?? 220));
-        $hardCapMaxTokens = max($defaultMaxTokens, (int) ($tokenOptimization['hard_cap_max_tokens'] ?? 320));
-        $complexMaxTokens = max($hardCapMaxTokens, (int) ($tokenOptimization['complex_max_tokens'] ?? 700));
-        $detailedMaxTokens = max($hardCapMaxTokens, (int) ($tokenOptimization['detailed_max_tokens'] ?? 900));
+        $autoEscalate = (bool) ($tokenOptimization['auto_escalate_balanced_to_detailed_ceiling'] ?? true);
+        $ceilingStyle = $responseStyle;
+        if ($responseStyle === 'balanced' && $autoEscalate && $wantsDetailedResponse) {
+            $ceilingStyle = 'detailed';
+        }
 
-        $effectiveCap = ($responseStyle === 'detailed' || $wantsDetailedResponse)
-            ? $detailedMaxTokens
-            : ($requiresComplexResponse ? $complexMaxTokens : $hardCapMaxTokens);
+        $modelKey = trim((string) ($originalPayload['model'] ?? ''));
+        $effectiveCeiling = $this->clampCompletionCeilingToModel($modelKey, $styleCeiling($ceilingStyle));
+
+        $defaultOutput = $styleDefault($responseStyle);
+        if ($responseStyle === 'balanced' && $requiresComplexResponse && ! $wantsDetailedResponse) {
+            $defaultOutput = min(max($defaultOutput, min(8192, $effectiveCeiling)), $effectiveCeiling);
+        }
+        $defaultOutput = max(32, min($defaultOutput, $effectiveCeiling));
+
         $requestedMaxTokens = (int) ($providerPayload['max_tokens'] ?? 0);
         if ($requestedMaxTokens > 0) {
-            $providerPayload['max_tokens'] = min($requestedMaxTokens, $effectiveCap);
+            $providerPayload['max_tokens'] = min($requestedMaxTokens, $effectiveCeiling);
         } else {
-            $providerPayload['max_tokens'] = $responseStyle === 'concise'
-                ? min($defaultMaxTokens, $hardCapMaxTokens)
-                : ((($responseStyle === 'detailed') || $wantsDetailedResponse)
-                    ? $complexMaxTokens
-                    : ($requiresComplexResponse ? $complexMaxTokens : $defaultMaxTokens));
+            $providerPayload['max_tokens'] = $defaultOutput;
         }
 
         $requestedTemperature = (float) ($providerPayload['temperature'] ?? 0.7);
@@ -1573,6 +1652,24 @@ class UnifiedChatService
         $providerPayload['messages'] = $messages;
 
         return $providerPayload;
+    }
+
+    private function clampCompletionCeilingToModel(string $modelKey, int $styleCeiling): int
+    {
+        $modelKey = trim($modelKey);
+        if ($modelKey === '') {
+            return $styleCeiling;
+        }
+
+        $maxOut = (int) (AiModel::query()
+            ->where('model_key', $modelKey)
+            ->value('max_output_tokens') ?? 0);
+
+        if ($maxOut > 0) {
+            return min($styleCeiling, max(32, $maxOut));
+        }
+
+        return $styleCeiling;
     }
 
     private function wantsDetailedResponse(string $text): bool

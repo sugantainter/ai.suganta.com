@@ -29,10 +29,22 @@ return [
     'request_log_redis_queue_key' => env('AI_REQUEST_LOG_REDIS_QUEUE_KEY', 'ai:reqlog:queue'),
     'token_optimization' => [
         'enabled' => (bool) env('AI_TOKEN_OPTIMIZATION_ENABLED', true),
-        'default_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_DEFAULT_MAX_TOKENS', 220),
-        'hard_cap_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_HARD_CAP_MAX_TOKENS', 320),
-        'detailed_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_DETAILED_MAX_TOKENS', 900),
-        'complex_max_tokens' => (int) env('AI_TOKEN_OPTIMIZATION_COMPLEX_MAX_TOKENS', 700),
+        // Hard ceiling on completion (max_tokens) per response_style; enforced server-side.
+        'style_output_token_ceiling' => [
+            'concise' => (int) env('AI_STYLE_OUTPUT_MAX_TOKENS_CONCISE', 2000),
+            'balanced' => (int) env('AI_STYLE_OUTPUT_MAX_TOKENS_BALANCED', 10000),
+            'detailed' => (int) env('AI_STYLE_OUTPUT_MAX_TOKENS_DETAILED', 20000),
+        ],
+        // When the client omits max_tokens, defaults stay within the style ceiling.
+        'style_default_output_tokens' => [
+            'concise' => (int) env('AI_STYLE_DEFAULT_OUTPUT_TOKENS_CONCISE', 1024),
+            'balanced' => (int) env('AI_STYLE_DEFAULT_OUTPUT_TOKENS_BALANCED', 4096),
+            'detailed' => (int) env('AI_STYLE_DEFAULT_OUTPUT_TOKENS_DETAILED', 8192),
+        ],
+        // Balanced + user cues like "in detail" may use the detailed ceiling (still capped by model max_output_tokens).
+        'auto_escalate_balanced_to_detailed_ceiling' => (bool) env('AI_TOKEN_OPTIMIZATION_AUTO_ESCALATE_DETAILED', true),
+        // Largest max_tokens clients may send (must be >= all style ceilings you allow).
+        'request_max_tokens_upper_bound' => (int) env('AI_REQUEST_MAX_TOKENS_UPPER', 20000),
         'concise_system_instruction' => env(
             'AI_TOKEN_OPTIMIZATION_CONCISE_SYSTEM_INSTRUCTION',
             'Respond with minimal tokens while still fully answering the user request. Do not omit required key details.'

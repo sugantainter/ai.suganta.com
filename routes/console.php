@@ -32,8 +32,8 @@ Schedule::command(
     ->withoutOverlapping()
     ->runInBackground();
 
-// Keep Grok model catalog in sync with provider availability.
-Schedule::command('ai:validate-grok-models')
+// Keep ai_models rows in sync with each provider catalog (availability + is_active).
+Schedule::command('ai:validate-models')
     ->everyThreeHours()
     ->withoutOverlapping()
     ->runInBackground();
