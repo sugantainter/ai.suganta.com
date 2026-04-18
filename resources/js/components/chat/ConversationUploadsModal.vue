@@ -1,5 +1,5 @@
 <template>
-    <div v-if="canOpen" class="mb-3">
+    <div v-if="canOpen && showLauncher" class="mb-3">
         <button
             class="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
             :disabled="loading"
@@ -67,6 +67,8 @@
 defineProps({
     open: { type: Boolean, default: false },
     canOpen: { type: Boolean, default: false },
+    /** When false, hide the inline launcher button (parent can open the modal another way). */
+    showLauncher: { type: Boolean, default: true },
     loading: { type: Boolean, default: false },
     assets: { type: Array, default: () => [] },
     assetActionLoadingId: { type: [Number, String, null], default: null },

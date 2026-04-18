@@ -162,7 +162,6 @@
                         :response-style="responseStyle"
                         :is-shared-view="isSharedView"
                         :model-options="modelOptions"
-                        :status-text="statusText"
                         :model-error-message="modelErrorMessage"
                         :share-loading="shareLoading"
                         :can-share="Boolean(currentConversationId)"
@@ -369,11 +368,12 @@
                     </div>
                 </div>
 
-                <div class="shrink-0 border-t border-zinc-800/80 bg-[#0d0d0d] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.45)]">
+                <div class="shrink-0 border-t border-zinc-800/80 bg-[#0d0d0d] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.35)] sm:px-4">
                     <div class="mx-auto w-full max-w-3xl">
                         <ConversationUploadsModal
                             :open="uploadsModalOpen"
                             :can-open="Boolean(currentConversationId)"
+                            :show-launcher="false"
                             :loading="assetsLoading"
                             :assets="conversationAssets"
                             :asset-action-loading-id="assetActionLoadingId"
@@ -407,8 +407,8 @@
                                 Async mode
                             </span>
                         </div>
-                        <div class="rounded-[1.75rem] border border-zinc-600/50 bg-[#303030] px-3 py-3 shadow-inner shadow-black/20 transition-[border-color,box-shadow] duration-200 focus-within:border-zinc-500/70 focus-within:shadow-[0_0_0_1px_rgba(16,185,129,0.12),inset_0_1px_0_rgba(255,255,255,0.04)] sm:rounded-full sm:py-2">
-                            <div v-if="attachments.length && !isSharedView" class="mb-3 flex flex-wrap gap-2">
+                        <div class="rounded-xl border border-zinc-600/40 bg-[#2a2a2a] px-2 py-1.5 shadow-inner shadow-black/15 transition-[border-color,box-shadow] duration-200 focus-within:border-zinc-500/60 focus-within:shadow-[0_0_0_1px_rgba(16,185,129,0.1),inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-2.5 sm:py-2 md:rounded-lg md:py-1.5">
+                            <div v-if="attachments.length && !isSharedView" class="mb-2 flex flex-wrap gap-1.5">
                                 <div
                                     v-for="item in attachments"
                                     :key="`${item.name}-${item.size}`"
@@ -436,7 +436,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1.5 sm:gap-2">
+                            <div class="flex items-center gap-1 sm:gap-1.5">
                                 <input
                                     ref="fileInputRef"
                                     type="file"
@@ -446,28 +446,44 @@
                                     @change="onFilePicked"
                                 >
                                 <button
-                                    class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:h-9 sm:w-9"
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-800/90 hover:text-zinc-100"
                                     type="button"
                                     :disabled="isSharedView"
                                     @click="openFilePicker"
-                                    title="Upload files"
+                                    title="Attach files"
                                 >
                                     <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current" aria-hidden="true">
                                         <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"></path>
                                     </svg>
                                 </button>
+                                <button
+                                    v-if="currentConversationId && !isSharedView"
+                                    type="button"
+                                    class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-800/90 hover:text-zinc-300 sm:flex"
+                                    title="Files uploaded in this chat"
+                                    @click="uploadsModalOpen = true"
+                                >
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-linejoin="round" />
+                                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                </button>
                                 <textarea
+                                    id="chat-composer-input"
                                     ref="composerInputRef"
                                     v-model="inputMessage"
                                     rows="1"
                                     :disabled="isSharedView"
-                                    class="max-h-52 min-h-11 w-full resize-none overflow-y-auto bg-transparent py-2.5 text-[15px] leading-6 text-zinc-100 outline-none placeholder:text-zinc-500 sm:max-h-44 sm:min-h-10 sm:py-2.5"
+                                    class="max-h-48 min-h-9 w-full min-w-0 resize-none overflow-y-auto bg-transparent py-2 text-[15px] leading-5 text-zinc-100 outline-none placeholder:text-zinc-500 sm:max-h-40 sm:py-1.5 md:py-1.5 md:text-[14px] md:leading-5"
                                     :placeholder="isSharedView ? 'Login to continue this chat' : 'Message SuGanta…'"
+                                    :title="isSharedView ? '' : 'Enter to send · Shift+Enter new line · Esc to leave'"
+                                    autocomplete="off"
                                     @input="adjustComposerHeight"
                                     @keydown="onComposerKeydown"
                                 />
+                                <span v-if="!isSharedView" class="sr-only">Enter sends the message. Shift+Enter adds a new line. Escape leaves the text box.</span>
                                 <button
-                                    class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition disabled:opacity-60 sm:h-9 sm:w-9"
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-400 transition disabled:opacity-60"
                                     :class="listening
                                         ? 'animate-pulse bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/50'
                                         : 'hover:bg-zinc-800 hover:text-zinc-100'"
@@ -481,7 +497,7 @@
                                     </svg>
                                 </button>
                                 <button
-                                    class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-900 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 sm:h-9 sm:w-9"
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-zinc-900 shadow-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
                                     :disabled="isSharedView || sending || (!inputMessage.trim() && attachments.length === 0)"
                                     @click="sendMessage"
                                     :title="sending ? 'Sending' : 'Send message'"
@@ -493,14 +509,11 @@
                             </div>
                             <div
                                 v-if="listening && !isSharedView"
-                                class="mt-2 flex items-center gap-2 pl-1 text-[11px] text-emerald-300"
+                                class="mt-1.5 flex items-center gap-1.5 pl-0.5 text-[10px] text-emerald-300/95"
                             >
-                                <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
-                                <span>Listening... speak now</span>
+                                <span class="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
+                                <span>Listening…</span>
                             </div>
-                            <p v-if="!isSharedView" class="mt-2 px-1 text-center text-[11px] text-zinc-500">
-                                Enter to send · Shift + Enter for new line · Esc to leave the text box
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -655,7 +668,6 @@ const responseStyle = ref('balanced');
 const inputMessage = ref('');
 const attachments = ref([]);
 const sending = ref(false);
-const statusText = ref('Ready');
 const modelErrorMessage = ref('');
 const chatErrorMessage = ref('');
 const rateLimitHint = ref('');
@@ -964,12 +976,6 @@ async function pollAsyncChatJob(jobId, timeoutMs = ASYNC_MODE_MAX_MS) {
             throw new Error(String(data?.error || 'Async chat processing failed.'));
         }
 
-        if (status === 'queued') {
-            statusText.value = 'Queued... preparing your response';
-        } else if (status === 'processing') {
-            statusText.value = 'Generating response...';
-        }
-
         const suggestedWait = Number(data?.poll_after_ms || 0);
         if (Number.isFinite(suggestedWait) && suggestedWait >= 300 && suggestedWait <= 5000) {
             waitMs = suggestedWait;
@@ -985,7 +991,6 @@ async function pollAsyncChatJob(jobId, timeoutMs = ASYNC_MODE_MAX_MS) {
 
 async function sendChatAsAsync(payload) {
     asyncModeActive.value = true;
-    statusText.value = 'Server busy. Switching to async mode...';
     const started = await apiRequest('/api/v1/chat/async', {
         method: 'POST',
         body: JSON.stringify({ ...payload, stream: false }),
@@ -996,7 +1001,6 @@ async function sendChatAsAsync(payload) {
         throw new Error('Unable to create async chat job.');
     }
 
-    statusText.value = 'Generating response...';
     return await pollAsyncChatJob(jobId, ASYNC_MODE_MAX_MS);
 }
 
@@ -1126,7 +1130,6 @@ async function loadBootstrapData() {
         return;
     }
 
-    statusText.value = 'Loading...';
     modelErrorMessage.value = '';
     try {
         const [usageData, modelData] = await Promise.all([
@@ -1145,11 +1148,9 @@ async function loadBootstrapData() {
             model.value = first.model;
             modelErrorMessage.value = '';
         }
-        statusText.value = 'Ready';
     } catch (error) {
         modelErrorMessage.value = 'Unable to load models. Please refresh or try again shortly.';
-        statusText.value = error.message || 'Failed to load data';
-        showErrorAlert(statusText.value, 'Failed to load chat data');
+        showErrorAlert(error.message || 'Failed to load data', 'Failed to load chat data');
     }
 }
 
@@ -1166,7 +1167,6 @@ async function openConversation(conversationId, syncRoute = true) {
     currentConversationId.value = parsedConversationId;
     mobileHistoryOpen.value = false;
     chatErrorMessage.value = '';
-    statusText.value = 'Loading conversation...';
     try {
         const data = await apiRequest(`/api/v1/chat/history/${parsedConversationId}?limit=200`);
         messages.value = (data.messages ?? []).map((item) => ({
@@ -1182,12 +1182,10 @@ async function openConversation(conversationId, syncRoute = true) {
             await syncConversationRoute(parsedConversationId);
         }
         await loadConversationAssets(parsedConversationId);
-        statusText.value = 'Conversation loaded';
         await scrollMessagesToBottom();
         await focusComposer();
     } catch (error) {
-        statusText.value = error.message || 'Failed to load conversation';
-        showErrorAlert(statusText.value, 'Conversation load failed');
+        showErrorAlert(error.message || 'Failed to load conversation', 'Conversation load failed');
     }
 }
 
@@ -1204,7 +1202,6 @@ async function startNewChat() {
     inputMessage.value = '';
     chatErrorMessage.value = '';
     await syncConversationRoute(null);
-    statusText.value = 'New chat started';
     await focusComposer();
 }
 
@@ -1258,17 +1255,12 @@ async function deleteConversation(conversationId) {
 
                 if (currentConversationId.value === parsedConversationId) {
                     await startNewChat();
-                } else {
-                    statusText.value = 'Conversation deleted';
                 }
             } finally {
                 deletingConversationId.value = null;
             }
         },
     });
-    if (!didDelete) {
-        statusText.value = 'Delete cancelled';
-    }
 }
 
 async function runSearchFromDatabase(query) {
@@ -1399,17 +1391,8 @@ function buildAssistantErrorMessage(selectedModel, error) {
     };
 }
 
-function updateModelProgressStatus(isCompareMode, completedCount, totalModels, currentModelIndex = null) {
-    if (isCompareMode) {
-        if (currentModelIndex !== null) {
-            statusText.value = `Generating response (${currentModelIndex + 1}/${totalModels})...`;
-            return;
-        }
-        statusText.value = `Completed ${completedCount}/${totalModels} model responses...`;
-        return;
-    }
-
-    statusText.value = 'Generating response...';
+function updateModelProgressStatus() {
+    // Toolbar status removed; compare/stream progress is visible in the message list.
 }
 
 async function sendMessage() {
@@ -1428,14 +1411,12 @@ async function sendMessage() {
             ? 'Please select one or more models for comparison.'
             : 'Please select a model before sending your message.';
         chatErrorMessage.value = '';
-        statusText.value = 'Model selection required';
         return;
     }
 
     if (compareMode.value && activeModelKeys.value.length < 2) {
         modelErrorMessage.value = 'Please select at least 2 models for comparison.';
         chatErrorMessage.value = '';
-        statusText.value = 'Select at least 2 models';
         return;
     }
 
@@ -1468,7 +1449,6 @@ async function sendMessage() {
     asyncModeActive.value = false;
     chatErrorMessage.value = '';
     rateLimitHint.value = '';
-    statusText.value = 'Sending...';
     await scrollMessagesToBottom();
 
     const payloadBase = {
@@ -1541,9 +1521,7 @@ async function sendMessage() {
                 completedCount += 1;
                 updateModelProgressStatus(compareMode.value, completedCount, totalModels);
             },
-            onParallelStart: ({ concurrency }) => {
-                statusText.value = `Running compare requests in parallel (max ${concurrency} at once)...`;
-            },
+            onParallelStart: () => {},
         });
 
         if (workingConversationId) {
@@ -1555,7 +1533,6 @@ async function sendMessage() {
             throw firstError;
         }
         await Promise.all([loadConversationList(), loadUsage()]);
-        statusText.value = compareMode.value ? 'Comparison completed' : 'Response received';
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
         await scrollMessagesToBottom();
@@ -1567,7 +1544,6 @@ async function sendMessage() {
         modelErrorMessage.value = userFriendlyMessage.toLowerCase().includes('model')
             ? (userFriendlyMessage || 'Model error. Please choose another model and try again.')
             : modelErrorMessage.value;
-        statusText.value = userFriendlyMessage || 'Failed to send message';
         if (isTokenLimitExceededError(error)) {
             showErrorAlert(chatErrorMessage.value, 'Chat request failed', {
                 secondaryButtonText: 'Upgrade Your Plan',
@@ -1597,14 +1573,12 @@ async function performChatRequest(payload, streamOptions = {}) {
             });
             if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
                 asyncModeActive.value = true;
-                statusText.value = 'Generating response...';
                 data = await pollAsyncChatJob(String(data.job_id));
             }
             return data;
         } catch (error) {
             if (String(error?.code || '') === 'chat_async_queued' && String(error?.job_id || '') !== '') {
                 asyncModeActive.value = true;
-                statusText.value = 'Generating response...';
                 return await pollAsyncChatJob(String(error.job_id));
             }
             if (!shouldFallbackToAsync(error)) {
@@ -1617,7 +1591,6 @@ async function performChatRequest(payload, streamOptions = {}) {
                     throw asyncError;
                 }
                 asyncModeActive.value = false;
-                statusText.value = 'Async timed out. Retrying in sync mode...';
                 return await apiRequest('/api/v1/chat', {
                     method: 'POST',
                     body: JSON.stringify({ ...payload, stream: false }),
@@ -1635,7 +1608,6 @@ async function performChatRequest(payload, streamOptions = {}) {
         });
         if (String(data?.status || '').toLowerCase() === 'queued' && String(data?.job_id || '') !== '') {
             asyncModeActive.value = true;
-            statusText.value = 'Generating response...';
             data = await pollAsyncChatJob(String(data.job_id));
         }
         return data;
@@ -1650,7 +1622,6 @@ async function performChatRequest(payload, streamOptions = {}) {
                 throw asyncError;
             }
             asyncModeActive.value = false;
-            statusText.value = 'Async timed out. Retrying in sync mode...';
             return await apiRequest('/api/v1/chat', {
                 method: 'POST',
                 body: JSON.stringify({ ...payload, stream: false }),
@@ -1687,7 +1658,6 @@ async function regenerateAssistantReply(assistantIndex) {
     asyncModeActive.value = false;
     chatErrorMessage.value = '';
     rateLimitHint.value = '';
-    statusText.value = 'Regenerating response...';
     await scrollMessagesToBottom();
 
     revealSessionId.value += 1;
@@ -1736,13 +1706,11 @@ async function regenerateAssistantReply(assistantIndex) {
         await Promise.all([loadConversationList(), loadUsage()]);
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
-        statusText.value = 'Response regenerated';
     } catch (error) {
         messages.value = snapshot;
         const userFriendlyMessage = toUserFriendlyChatError(error);
         chatErrorMessage.value = userFriendlyMessage;
         rateLimitHint.value = buildRateLimitHint(error);
-        statusText.value = userFriendlyMessage || 'Failed to regenerate response';
         showErrorAlert(chatErrorMessage.value, 'Regenerate failed');
     } finally {
         asyncModeActive.value = false;
@@ -1775,7 +1743,6 @@ async function continueAssistantReply(assistantIndex) {
     asyncModeActive.value = false;
     chatErrorMessage.value = '';
     rateLimitHint.value = '';
-    statusText.value = 'Continuing response...';
     await scrollMessagesToBottom();
 
     revealSessionId.value += 1;
@@ -1825,14 +1792,12 @@ async function continueAssistantReply(assistantIndex) {
         await Promise.all([loadConversationList(), loadUsage()]);
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
-        statusText.value = 'Response continued';
         await scrollMessagesToBottom();
     } catch (error) {
         messages.value = snapshot;
         const userFriendlyMessage = toUserFriendlyChatError(error);
         chatErrorMessage.value = userFriendlyMessage;
         rateLimitHint.value = buildRateLimitHint(error);
-        statusText.value = userFriendlyMessage || 'Failed to continue response';
         showErrorAlert(chatErrorMessage.value, 'Continue failed');
     } finally {
         asyncModeActive.value = false;
@@ -2092,11 +2057,9 @@ async function shareConversation() {
         );
         if (shareUrl !== '') {
             shareModalOpen.value = true;
-            statusText.value = 'Share link created';
         }
     } catch (error) {
         const message = error?.message || 'Failed to create share link.';
-        statusText.value = message;
         showErrorAlert(message, 'Share failed');
     } finally {
         shareLoading.value = false;
@@ -2120,7 +2083,6 @@ async function copyShareLink() {
             throw new Error('Clipboard unavailable');
         }
         shareCopiedText.value = 'Copied';
-        statusText.value = 'Share link copied';
     } catch {
         showErrorAlert('Unable to copy automatically. Please copy the link manually.', 'Copy failed');
     }
@@ -2146,7 +2108,6 @@ async function loadSharedConversation(shareToken) {
     const token = String(shareToken ?? '').trim();
     if (token === '') {
         messages.value = [];
-        statusText.value = 'Shared conversation not found';
         return;
     }
 
@@ -2157,7 +2118,6 @@ async function loadSharedConversation(shareToken) {
     conversationAssets.value = [];
     uploadsModalOpen.value = false;
     attachments.value = [];
-    statusText.value = 'Loading shared conversation...';
     chatErrorMessage.value = '';
     modelErrorMessage.value = '';
     try {
@@ -2179,12 +2139,10 @@ async function loadSharedConversation(shareToken) {
         if (data.conversation?.model) {
             model.value = String(data.conversation.model);
         }
-        statusText.value = 'Shared conversation loaded';
         await scrollMessagesToBottom();
     } catch (error) {
         messages.value = [];
-        statusText.value = error?.message || 'Unable to load shared conversation.';
-        showErrorAlert(statusText.value, 'Shared chat unavailable');
+        showErrorAlert(error?.message || 'Unable to load shared conversation.', 'Shared chat unavailable');
     }
 }
 
@@ -2228,8 +2186,7 @@ async function loadConversationListInternal(reset = false) {
         historyHasMore.value = conversations.value.length < total;
         historyPage.value = pageToLoad + 1;
     } catch (error) {
-        statusText.value = error.message || 'Failed to load conversation history';
-        showErrorAlert(statusText.value, 'Conversation history failed');
+        showErrorAlert(error.message || 'Failed to load conversation history', 'Conversation history failed');
     } finally {
         historyLoading.value = false;
     }
@@ -2333,7 +2290,6 @@ watch(
                 currentConversationId.value = null;
                 messages.value = [];
                 conversationAssets.value = [];
-                statusText.value = 'Ready';
             }
             return;
         }

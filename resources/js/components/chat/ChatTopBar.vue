@@ -71,12 +71,6 @@
                 </select>
             </div>
 
-            <p
-                class="hidden min-w-0 shrink truncate text-[11px] text-zinc-500 md:block md:max-w-[min(12rem,22vw)] lg:max-w-[16rem]"
-            >
-                {{ statusText }}
-            </p>
-
             <div class="flex flex-wrap items-center gap-2 md:ml-auto md:flex-nowrap md:shrink-0">
                 <button
                     type="button"
@@ -96,10 +90,6 @@
                     {{ advancedOpen ? 'Hide' : 'Options' }}
                 </button>
             </div>
-
-            <p class="w-full text-[11px] leading-tight text-zinc-500 md:hidden">
-                {{ statusText }}
-            </p>
             </div>
 
             <div
@@ -172,7 +162,6 @@ const props = defineProps({
     capabilityFilter: { type: String, default: 'all' },
     responseStyle: { type: String, default: 'balanced' },
     modelOptions: { type: Array, default: () => [] },
-    statusText: { type: String, default: 'Ready' },
     modelErrorMessage: { type: String, default: '' },
     shareLoading: { type: Boolean, default: false },
     canShare: { type: Boolean, default: false },
