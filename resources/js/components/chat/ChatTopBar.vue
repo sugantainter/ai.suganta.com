@@ -1,5 +1,5 @@
 <template>
-    <div class="shrink-0 border-b border-zinc-800 px-4 py-3">
+    <div class="shrink-0 border-b border-zinc-800/90 bg-[#212121] px-3 py-2">
         <div v-if="isSharedView" class="flex items-center justify-between gap-2">
             <div>
                 <p class="text-sm font-semibold text-zinc-100">Shared conversation</p>
@@ -14,63 +14,81 @@
         </div>
 
         <div v-else class="space-y-2">
-            <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-2.5">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                    <p class="text-xs font-medium text-zinc-300">Chat Controls</p>
-                    <p class="text-[11px] text-zinc-500">{{ statusText }}</p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-            <button
-                class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
-                @click="$emit('open-search')"
+            <div class="flex flex-wrap items-center gap-2">
+                <select
+                    :value="modelValue"
+                    :disabled="modelOptions.length === 0 || compareMode"
+                    class="min-h-9 min-w-0 flex-1 rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-zinc-500 sm:max-w-md"
+                    @change="$emit('update:modelValue', $event.target.value)"
+                >
+                    <option v-for="item in modelOptions" :key="item.model" :value="item.model">
+                        {{ item.display_name }}
+                    </option>
+                </select>
+                <p class="order-last hidden w-full text-[11px] text-zinc-500 sm:order-0 sm:ml-auto sm:block sm:w-auto sm:truncate sm:max-w-40 md:max-w-56">
+                    {{ statusText }}
+                </p>
+                <button
+                    type="button"
+                    class="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                    :disabled="shareLoading || !canShare"
+                    @click="$emit('share')"
+                >
+                    {{ shareLoading ? '…' : 'Share' }}
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex min-h-9 items-center justify-center rounded-xl border border-zinc-700/90 bg-zinc-900/80 px-3 text-xs font-medium text-zinc-200 hover:bg-zinc-800"
+                    :aria-expanded="advancedOpen"
+                    aria-controls="chat-advanced-controls"
+                    @click="advancedOpen = !advancedOpen"
+                >
+                    {{ advancedOpen ? 'Hide' : 'Options' }}
+                </button>
+            </div>
+            <p class="w-full text-[11px] leading-tight text-zinc-500 sm:hidden">
+                {{ statusText }}
+            </p>
+
+            <div
+                v-show="advancedOpen"
+                id="chat-advanced-controls"
+                class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-2 py-2"
             >
-                Search
-            </button>
-            <select
-                :value="modelValue"
-                :disabled="modelOptions.length === 0 || compareMode"
-                class="min-w-[180px] rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500 max-[420px]:w-full"
-                @change="$emit('update:modelValue', $event.target.value)"
-            >
-                <option v-for="item in modelOptions" :key="item.model" :value="item.model">
-                    {{ item.display_name }}
-                </option>
-            </select>
-            <button
-                class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
-                type="button"
-                @click="$emit('update:compareMode', !compareMode)"
-            >
-                {{ compareMode ? 'Compare: ON' : 'Compare: OFF' }}
-            </button>
-            <select
-                :value="capabilityFilter"
-                class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500 max-[420px]:w-full"
-                @change="$emit('update:capabilityFilter', $event.target.value)"
-            >
-                <option value="all">All</option>
-                <option value="vision">Vision</option>
-                <option value="reasoning">Reasoning</option>
-                <option value="web_search">Web search</option>
-                <option value="tools">Tools</option>
-            </select>
-            <select
-                :value="responseStyle"
-                class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500 max-[420px]:w-full"
-                @change="$emit('update:responseStyle', $event.target.value)"
-            >
-                <option value="concise">Concise</option>
-                <option value="balanced">Balanced</option>
-                <option value="detailed">Detailed</option>
-            </select>
-            <button
-                class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60 max-[420px]:w-full"
-                :disabled="shareLoading || !canShare"
-                @click="$emit('share')"
-            >
-                {{ shareLoading ? 'Sharing...' : 'Share' }}
-            </button>
-                </div>
+                <button
+                    class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 md:hidden"
+                    type="button"
+                    @click="$emit('open-search')"
+                >
+                    Search
+                </button>
+                <button
+                    class="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                    type="button"
+                    @click="$emit('update:compareMode', !compareMode)"
+                >
+                    {{ compareMode ? 'Compare on' : 'Compare off' }}
+                </button>
+                <select
+                    :value="capabilityFilter"
+                    class="min-h-9 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                    @change="$emit('update:capabilityFilter', $event.target.value)"
+                >
+                    <option value="all">Models: all</option>
+                    <option value="vision">Vision</option>
+                    <option value="reasoning">Reasoning</option>
+                    <option value="web_search">Web search</option>
+                    <option value="tools">Tools</option>
+                </select>
+                <select
+                    :value="responseStyle"
+                    class="min-h-9 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-zinc-500"
+                    @change="$emit('update:responseStyle', $event.target.value)"
+                >
+                    <option value="concise">Tone: concise</option>
+                    <option value="balanced">Tone: balanced</option>
+                    <option value="detailed">Tone: detailed</option>
+                </select>
             </div>
 
             <div
@@ -161,6 +179,7 @@ const emit = defineEmits([
 
 const comparePickerExpanded = ref(false);
 const comparePanelRef = ref(null);
+const advancedOpen = ref(false);
 const compareModelsCount = computed(() => (
     Array.isArray(props.compareModels)
         ? props.compareModels.filter((item) => String(item || '').trim() !== '').length

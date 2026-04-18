@@ -47,7 +47,7 @@ export async function executeModelRequests({
                 workingConversationId = data.conversation_id;
             }
             successCount += 1;
-            onModelSuccess?.({ modelIndex, totalModels, selectedModel, data });
+            await onModelSuccess?.({ modelIndex, totalModels, selectedModel, data });
             return;
         } catch (error) {
             if (!firstError) {

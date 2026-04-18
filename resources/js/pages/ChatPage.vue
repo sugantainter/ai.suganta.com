@@ -163,122 +163,159 @@
                 </div>
 
                 <div ref="messageContainerRef" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                    <div v-if="messages.length" class="mx-auto w-full max-w-3xl px-4 py-8">
-                        <div
+                    <div v-if="messages.length">
+                        <article
                             v-for="(message, index) in messages"
                             :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
-                            class="mb-4"
+                            class="group/msg border-b border-zinc-800/40 last:border-b-0"
+                            :class="message.role === 'user' ? 'bg-[#2f2f2f]' : 'bg-[#212121]'"
                         >
-                            <div
-                                class="rounded-2xl px-4 py-3 text-sm leading-6"
-                                :class="message.role === 'user'
-                                    ? 'ml-auto max-w-[86%] whitespace-pre-wrap bg-zinc-700/70 text-zinc-100'
-                                    : 'max-w-full bg-zinc-900/70 text-zinc-100'"
-                            >
-                                <div v-if="message.processing" class="flex items-center gap-2 text-zinc-300">
-                                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400"></span>
-                                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:140ms]"></span>
-                                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:280ms]"></span>
-                                    <span class="ml-1 text-xs text-zinc-400">AI is processing...</span>
-                                </div>
-                                <div
-                                    v-else
-                                    class="markdown-body space-y-2 wrap-break-word text-[15px] leading-relaxed [&_a]:text-sky-400 [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_h1]:mb-2 [&_h1]:mt-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_h3]:text-base [&_h3]:font-semibold [&_h4]:mb-1 [&_h4]:mt-2 [&_h4]:text-sm [&_h4]:font-semibold [&_hr]:my-4 [&_hr]:border-zinc-600 [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_pre]:text-xs [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-700 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
-                                    v-html="formatMessageContent(message.content)"
-                                ></div>
-                                <p
-                                    v-if="message.role === 'assistant' && !message.processing && (message.model || message.provider)"
-                                    class="mt-2 text-[11px] text-zinc-400"
-                                >
-                                    {{ message.model || 'Assistant' }}<span v-if="message.provider"> ({{ message.provider }})</span>
-                                </p>
-                            </div>
-                            <div
-                                v-if="message.attachments?.length"
-                                class="mt-2 flex flex-wrap gap-2"
-                                :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-                            >
-                                <div
-                                    v-for="attachment in message.attachments"
-                                    :key="`${attachment.name}-${attachment.size || 0}`"
-                                    class="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-300"
-                                >
-                                    <img
-                                        v-if="attachment.type?.startsWith('image/') && attachment.dataUrl"
-                                        :src="attachment.dataUrl"
-                                        :alt="attachment.name"
-                                        class="h-8 w-8 rounded object-cover"
+                            <div class="mx-auto flex max-w-3xl gap-3 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6">
+                                <div class="flex w-7 shrink-0 justify-center sm:w-8" aria-hidden="true">
+                                    <div
+                                        v-if="message.role === 'user'"
+                                        class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-600 text-[9px] font-bold uppercase tracking-wide text-white sm:h-8 sm:w-8 sm:text-[10px]"
                                     >
+                                        You
+                                    </div>
                                     <div
                                         v-else
-                                        class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
+                                        class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-emerald-950/80 text-[10px] font-bold text-emerald-200 ring-1 ring-emerald-800/60 sm:h-8 sm:w-8"
                                     >
-                                        FILE
+                                        AI
                                     </div>
-                                    <span class="max-w-44 truncate">{{ attachment.name }}</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div v-if="message.processing" class="flex items-center gap-2 text-zinc-400">
+                                        <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400"></span>
+                                        <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:140ms]"></span>
+                                        <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-zinc-400 [animation-delay:280ms]"></span>
+                                        <span class="ml-1 text-sm text-zinc-400">Thinking…</span>
+                                    </div>
+                                    <template v-else>
+                                        <div
+                                            v-if="message.role === 'user'"
+                                            class="wrap-break-word whitespace-pre-wrap text-[15px] leading-7 text-zinc-100"
+                                        >
+                                            {{ message.content }}
+                                        </div>
+                                        <div
+                                            v-else
+                                            :class="assistantMarkdownHtmlClass"
+                                            v-html="formatMessageContent(message.content)"
+                                            @click.capture="handleMarkdownCodeCopyClick"
+                                        ></div>
+                                        <p
+                                            v-if="message.role === 'assistant' && (message.model || message.provider)"
+                                            class="mt-3 text-[11px] text-zinc-500"
+                                        >
+                                            {{ message.model || 'Assistant' }}<span v-if="message.provider"> · {{ message.provider }}</span>
+                                        </p>
+                                    </template>
+                                    <div
+                                        v-if="message.attachments?.length"
+                                        class="mt-3 flex flex-wrap gap-2"
+                                    >
+                                        <div
+                                            v-for="attachment in message.attachments"
+                                            :key="`${attachment.name}-${attachment.size || 0}`"
+                                            class="flex items-center gap-2 rounded-lg border border-zinc-600/60 bg-zinc-900/50 px-2 py-1 text-xs text-zinc-300"
+                                        >
+                                            <img
+                                                v-if="attachment.type?.startsWith('image/') && attachment.dataUrl"
+                                                :src="attachment.dataUrl"
+                                                :alt="attachment.name"
+                                                class="h-8 w-8 rounded object-cover"
+                                            >
+                                            <div
+                                                v-else
+                                                class="flex h-8 w-8 items-center justify-center rounded bg-zinc-700 text-[10px] font-semibold text-zinc-200"
+                                            >
+                                                FILE
+                                            </div>
+                                            <span class="max-w-44 truncate">{{ attachment.name }}</span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="!isSharedView && message.role === 'assistant' && !message.processing"
+                                        class="mt-3 flex flex-wrap items-center gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100"
+                                    >
+                                        <button
+                                            class="rounded-lg border border-zinc-600/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                            type="button"
+                                            :disabled="sending"
+                                            @click="copyAssistantReply(index)"
+                                        >
+                                            {{ copiedAssistantIndex === index ? 'Copied' : 'Copy' }}
+                                        </button>
+                                        <button
+                                            class="rounded-lg border px-2.5 py-1 text-[11px] disabled:opacity-60"
+                                            :class="message.feedback === 'up'
+                                                ? 'border-emerald-500/70 bg-emerald-500/20 text-emerald-200'
+                                                : 'border-zinc-600/70 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800'"
+                                            type="button"
+                                            :disabled="sending"
+                                            @click="setAssistantFeedback(index, 'up')"
+                                        >
+                                            👍
+                                        </button>
+                                        <button
+                                            class="rounded-lg border px-2.5 py-1 text-[11px] disabled:opacity-60"
+                                            :class="message.feedback === 'down'
+                                                ? 'border-rose-500/70 bg-rose-500/20 text-rose-200'
+                                                : 'border-zinc-600/70 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800'"
+                                            type="button"
+                                            :disabled="sending"
+                                            @click="setAssistantFeedback(index, 'down')"
+                                        >
+                                            👎
+                                        </button>
+                                        <button
+                                            class="rounded-lg border border-zinc-600/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                            type="button"
+                                            :disabled="sending"
+                                            @click="regenerateAssistantReply(index)"
+                                        >
+                                            Regenerate
+                                        </button>
+                                        <button
+                                            class="rounded-lg border border-zinc-600/70 bg-zinc-900/60 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
+                                            type="button"
+                                            :disabled="sending"
+                                            @click="continueAssistantReply(index)"
+                                        >
+                                            Continue
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div
-                                v-if="!isSharedView && message.role === 'assistant' && !message.processing"
-                                class="mt-2 flex items-center gap-2"
-                            >
-                                <button
-                                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
-                                    type="button"
-                                    :disabled="sending"
-                                    @click="copyAssistantReply(index)"
-                                >
-                                    {{ copiedAssistantIndex === index ? 'Copied' : 'Copy' }}
-                                </button>
-                                <button
-                                    class="rounded-md border px-2 py-1 text-[11px] disabled:opacity-60"
-                                    :class="message.feedback === 'up'
-                                        ? 'border-emerald-500/70 bg-emerald-500/20 text-emerald-200'
-                                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
-                                    type="button"
-                                    :disabled="sending"
-                                    @click="setAssistantFeedback(index, 'up')"
-                                >
-                                    👍
-                                </button>
-                                <button
-                                    class="rounded-md border px-2 py-1 text-[11px] disabled:opacity-60"
-                                    :class="message.feedback === 'down'
-                                        ? 'border-rose-500/70 bg-rose-500/20 text-rose-200'
-                                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
-                                    type="button"
-                                    :disabled="sending"
-                                    @click="setAssistantFeedback(index, 'down')"
-                                >
-                                    👎
-                                </button>
-                                <button
-                                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
-                                    type="button"
-                                    :disabled="sending"
-                                    @click="regenerateAssistantReply(index)"
-                                >
-                                    Regenerate
-                                </button>
-                                <button
-                                    class="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800 disabled:opacity-60"
-                                    type="button"
-                                    :disabled="sending"
-                                    @click="continueAssistantReply(index)"
-                                >
-                                    Continue
-                                </button>
+                        </article>
+                        <div v-if="isSharedView" class="mx-auto max-w-3xl px-4 pb-8 pt-2 sm:px-6">
+                            <div class="rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
+                                <p>Login to access more features and continue this chat.</p>
+                                <a href="/" class="mt-2 inline-block text-xs text-emerald-400 hover:text-emerald-300">Login to continue</a>
                             </div>
                         </div>
-                        <div v-if="isSharedView" class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300">
-                            <p>Login to access more features and continue this chat.</p>
-                            <a href="/" class="mt-2 inline-block text-xs text-emerald-400 hover:text-emerald-300">Login to continue</a>
-                        </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center px-5">
-                        <div class="w-full max-w-3xl text-center">
-                            <p class="text-3xl font-medium text-zinc-200">How can I help you today?</p>
-                            <p class="mt-3 text-sm text-zinc-500">Start a new conversation and ask anything.</p>
+                    <div v-else class="flex min-h-[calc(100dvh-22rem)] flex-col items-center justify-center px-4 py-12 sm:px-6">
+                        <div class="w-full max-w-2xl text-center">
+                            <p class="text-3xl font-semibold tracking-tight text-zinc-100 sm:text-4xl">
+                                What can I help with?
+                            </p>
+                            <p class="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-zinc-500">
+                                Ask a question, paste code, or pick a suggestion below. Same flow you know from modern chat apps — Enter sends, Shift + Enter adds a new line.
+                            </p>
+                            <div class="mx-auto mt-8 grid max-w-xl gap-2 sm:grid-cols-2">
+                                <button
+                                    v-for="(prompt, idx) in starterPrompts"
+                                    :key="idx"
+                                    type="button"
+                                    class="rounded-xl border border-zinc-700/80 bg-zinc-800/40 px-4 py-3 text-left text-sm text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800/70"
+                                    @click="applyStarterPrompt(prompt)"
+                                >
+                                    {{ prompt }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -321,7 +358,7 @@
                                 Async mode
                             </span>
                         </div>
-                        <div class="rounded-[1.6rem] border border-zinc-700 bg-zinc-900 px-3 py-3 sm:rounded-full sm:py-2">
+                        <div class="rounded-[1.75rem] border border-zinc-600/50 bg-[#303030] px-3 py-3 shadow-inner shadow-black/20 sm:rounded-full sm:py-2">
                             <div v-if="attachments.length && !isSharedView" class="mb-3 flex flex-wrap gap-2">
                                 <div
                                     v-for="item in attachments"
@@ -375,9 +412,10 @@
                                     v-model="inputMessage"
                                     rows="1"
                                     :disabled="isSharedView"
-                                    class="max-h-44 min-h-12 w-full resize-none bg-transparent py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 sm:max-h-40 sm:min-h-9 sm:py-2"
-                                    :placeholder="isSharedView ? 'Login to continue this chat' : 'Ask anything'"
-                                    @keydown.enter.exact.prevent="sendMessage"
+                                    class="max-h-52 min-h-11 w-full resize-none overflow-y-auto bg-transparent py-2.5 text-[15px] leading-6 text-zinc-100 outline-none placeholder:text-zinc-500 sm:max-h-44 sm:min-h-10 sm:py-2.5"
+                                    :placeholder="isSharedView ? 'Login to continue this chat' : 'Message SuGanta…'"
+                                    @input="adjustComposerHeight"
+                                    @keydown="onComposerKeydown"
                                 />
                                 <button
                                     class="flex h-10 w-10 items-center justify-center rounded-full text-zinc-300 transition disabled:opacity-60 sm:h-9 sm:w-9"
@@ -411,6 +449,9 @@
                                 <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
                                 <span>Listening... speak now</span>
                             </div>
+                            <p v-if="!isSharedView" class="mt-2 px-1 text-center text-[11px] text-zinc-500">
+                                Enter to send · Shift + Enter for new line
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -503,7 +544,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { showConfirmAlert, showErrorAlert } from '../utils/alerts';
 import { loginGatewayRedirectIfNeeded } from '../utils/authRedirect';
-import { formatMessageContent } from '../utils/messageFormat';
+import { formatMessageContent, handleMarkdownCodeCopyClick } from '../utils/messageFormat';
+import { runAssistantTypewriter } from '../utils/assistantTypewriter';
 import { executeModelRequests } from './chat/compareRunner';
 import ChatTopBar from '../components/chat/ChatTopBar.vue';
 import ShareChatModal from '../components/chat/ShareChatModal.vue';
@@ -515,6 +557,16 @@ const router = useRouter();
 const messageContainerRef = ref(null);
 const fileInputRef = ref(null);
 const composerInputRef = ref(null);
+
+const assistantMarkdownHtmlClass =
+    'markdown-body space-y-2 wrap-break-word text-[15px] leading-relaxed text-zinc-100 [&_a]:text-sky-400 [&_a]:underline [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-300 [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_h1]:mb-2 [&_h1]:mt-3 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mb-1.5 [&_h3]:mt-2 [&_h3]:text-base [&_h3]:font-semibold [&_h4]:mb-1 [&_h4]:mt-2 [&_h4]:text-sm [&_h4]:font-semibold [&_hr]:my-4 [&_hr]:border-zinc-600 [&_img]:my-3 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-zinc-700/80 [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:my-2 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-950 [&_pre]:p-3 [&_pre]:text-xs [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-700 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5';
+
+const starterPrompts = [
+    'Explain a complex topic in simple terms',
+    'Help me debug or improve this code',
+    'Draft a concise email or message for work',
+    'Suggest ideas for a creative weekend project',
+];
 
 const conversations = ref([]);
 const messages = ref([]);
@@ -568,6 +620,8 @@ const shareModalOpen = ref(false);
 const shareCopiedText = ref('Copy');
 const shareModalTitle = ref('Share conversation');
 const mobileHistoryOpen = ref(false);
+/** Bumped on each new send/regenerate/continue so in-flight typing reveals stop cleanly. */
+const revealSessionId = ref(0);
 const SpeechRecognitionCtor = typeof window !== 'undefined'
     ? (window.SpeechRecognition || window.webkitSpeechRecognition || null)
     : null;
@@ -1030,6 +1084,34 @@ async function scrollMessagesToBottom() {
 async function focusComposer() {
     await nextTick();
     composerInputRef.value?.focus();
+    adjustComposerHeight();
+}
+
+function adjustComposerHeight() {
+    const el = composerInputRef.value;
+    if (!el) {
+        return;
+    }
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+}
+
+function onComposerKeydown(event) {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
+        return;
+    }
+    event.preventDefault();
+    sendMessage();
+}
+
+async function applyStarterPrompt(text) {
+    if (isSharedView.value) {
+        return;
+    }
+    inputMessage.value = text;
+    await nextTick();
+    adjustComposerHeight();
+    composerInputRef.value?.focus();
 }
 
 async function loadBootstrapData() {
@@ -1227,6 +1309,55 @@ function setAssistantMessageAt(baseIndex, modelIndex, message) {
     messages.value = [...messages.value];
 }
 
+async function revealAssistantMessage(index, finalMessage, session) {
+    const current = messages.value[index];
+    if (!current) {
+        return;
+    }
+    const fullText = String(finalMessage.content ?? '');
+    messages.value.splice(index, 1, {
+        ...current,
+        ...finalMessage,
+        content: '',
+        processing: false,
+    });
+    await scrollMessagesToBottom();
+    await runAssistantTypewriter(
+        (slice) => {
+            if (revealSessionId.value !== session) {
+                return;
+            }
+            const latest = messages.value[index];
+            if (!latest) {
+                return;
+            }
+            messages.value.splice(index, 1, {
+                ...latest,
+                ...finalMessage,
+                content: slice,
+                processing: false,
+            });
+        },
+        fullText,
+        {
+            shouldContinue: () => revealSessionId.value === session,
+            onScroll: () => scrollMessagesToBottom(),
+        },
+    );
+    if (revealSessionId.value !== session) {
+        return;
+    }
+    const last = messages.value[index];
+    if (last) {
+        messages.value.splice(index, 1, {
+            ...last,
+            ...finalMessage,
+            content: fullText,
+            processing: false,
+        });
+    }
+}
+
 function buildAssistantSuccessMessage(data, selectedModel) {
     return {
         role: 'assistant',
@@ -1314,6 +1445,8 @@ async function sendMessage() {
     messages.value = [...nextMessages, ...placeholderReplies];
     inputMessage.value = '';
     attachments.value = [];
+    await nextTick();
+    adjustComposerHeight();
     sending.value = true;
     asyncModeActive.value = false;
     chatErrorMessage.value = '';
@@ -1339,6 +1472,8 @@ async function sendMessage() {
     };
 
     try {
+        revealSessionId.value += 1;
+        const typingSession = revealSessionId.value;
         const baseIndex = nextMessages.length;
         const selectedModelKeys = [...activeModelKeys.value];
         const totalModels = selectedModelKeys.length;
@@ -1357,8 +1492,12 @@ async function sendMessage() {
             onModelStart: ({ modelIndex }) => {
                 updateModelProgressStatus(compareMode.value, completedCount, totalModels, modelIndex);
             },
-            onModelSuccess: ({ modelIndex, selectedModel, data }) => {
-                setAssistantMessageAt(baseIndex, modelIndex, buildAssistantSuccessMessage(data, selectedModel));
+            onModelSuccess: async ({ modelIndex, selectedModel, data }) => {
+                await revealAssistantMessage(
+                    baseIndex + modelIndex,
+                    buildAssistantSuccessMessage(data, selectedModel),
+                    typingSession,
+                );
                 completedCount += 1;
                 updateModelProgressStatus(compareMode.value, completedCount, totalModels);
             },
@@ -1476,6 +1615,9 @@ async function regenerateAssistantReply(assistantIndex) {
     statusText.value = 'Regenerating response...';
     await scrollMessagesToBottom();
 
+    revealSessionId.value += 1;
+    const typingSession = revealSessionId.value;
+
     const payload = {
         model: model.value,
         conversation_id: currentConversationId.value ?? undefined,
@@ -1495,19 +1637,15 @@ async function regenerateAssistantReply(assistantIndex) {
             await syncConversationRoute(data.conversation_id);
             await loadConversationAssets(data.conversation_id);
         }
-        messages.value = [
-            ...snapshot.slice(0, assistantIndex),
-            {
-                role: 'assistant',
-                content: extractAssistantMessage(data),
-                attachments: [],
-                provider: String(data?.provider || ''),
-                model: String(data?.model || model.value || ''),
-                feedback: null,
-                processing: false,
-            },
-            ...snapshot.slice(assistantIndex + 1),
-        ];
+        await revealAssistantMessage(assistantIndex, {
+            role: 'assistant',
+            content: extractAssistantMessage(data),
+            attachments: [],
+            provider: String(data?.provider || ''),
+            model: String(data?.model || model.value || ''),
+            feedback: null,
+            processing: false,
+        }, typingSession);
         await Promise.all([loadConversationList(), loadUsage()]);
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
@@ -1553,6 +1691,9 @@ async function continueAssistantReply(assistantIndex) {
     statusText.value = 'Continuing response...';
     await scrollMessagesToBottom();
 
+    revealSessionId.value += 1;
+    const continueTypingSession = revealSessionId.value;
+
     const payload = {
         model: model.value,
         conversation_id: currentConversationId.value ?? undefined,
@@ -1572,18 +1713,15 @@ async function continueAssistantReply(assistantIndex) {
             await syncConversationRoute(data.conversation_id);
             await loadConversationAssets(data.conversation_id);
         }
-        messages.value = [
-            ...snapshot,
-            {
-                role: 'assistant',
-                content: extractAssistantMessage(data),
-                attachments: [],
-                provider: String(data?.provider || ''),
-                model: String(data?.model || model.value || ''),
-                feedback: null,
-                processing: false,
-            },
-        ];
+        await revealAssistantMessage(snapshot.length, {
+            role: 'assistant',
+            content: extractAssistantMessage(data),
+            attachments: [],
+            provider: String(data?.provider || ''),
+            model: String(data?.model || model.value || ''),
+            feedback: null,
+            processing: false,
+        }, continueTypingSession);
         await Promise.all([loadConversationList(), loadUsage()]);
         chatErrorMessage.value = '';
         rateLimitHint.value = '';
@@ -2009,6 +2147,12 @@ function handleHistoryScroll(event) {
         loadConversationListInternal(false);
     }
 }
+
+watch(inputMessage, () => {
+    void nextTick(() => {
+        adjustComposerHeight();
+    });
+});
 
 watch(searchQuery, (value) => {
     if (isSharedView.value) {
