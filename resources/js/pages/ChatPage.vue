@@ -107,8 +107,8 @@
                 class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]"
                 aria-label="Chat conversation"
             >
-                <div class="sticky top-0 z-30 bg-[#212121]">
-                    <div class="shrink-0 border-b border-zinc-800 px-3 py-2 md:hidden">
+                <div class="sticky top-0 z-30 bg-[#0d0d0d]">
+                    <div class="shrink-0 border-b border-zinc-800/80 px-3 py-2 md:hidden">
                         <div class="flex items-center justify-between gap-2">
                             <a
                                 href="https://www.suganta.com"
@@ -187,13 +187,13 @@
                             v-for="(message, index) in messages"
                             :key="`${message.role}-${index}-${message.content?.slice(0, 16)}`"
                             class="group/msg border-b border-zinc-800/35 transition-colors duration-200 last:border-b-0"
-                            :class="message.role === 'user' ? 'bg-[#2f2f2f]' : 'bg-[#212121]'"
+                            :class="message.role === 'user' ? 'bg-[#262626]' : 'bg-[#212121]'"
                         >
                             <div class="mx-auto flex max-w-3xl gap-3 px-4 py-5 sm:gap-5 sm:px-6 sm:py-6">
                                 <div class="flex w-7 shrink-0 justify-center sm:w-8" aria-hidden="true">
                                     <div
                                         v-if="message.role === 'user'"
-                                        class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-600 text-[9px] font-bold uppercase tracking-wide text-white sm:h-8 sm:w-8 sm:text-[10px]"
+                                        class="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-amber-950/80 text-[9px] font-bold uppercase tracking-wide text-amber-100 shadow-sm shadow-black/25 ring-1 ring-amber-800/50 sm:h-8 sm:w-8 sm:text-[10px]"
                                     >
                                         You
                                     </div>
@@ -216,9 +216,11 @@
                                     <template v-else>
                                         <div
                                             v-if="message.role === 'user'"
-                                            class="wrap-break-word whitespace-pre-wrap text-[15px] leading-7 text-zinc-100"
+                                            class="rounded-2xl border border-zinc-600/30 bg-zinc-800/45 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-5 sm:py-4"
                                         >
-                                            {{ message.content }}
+                                            <div class="wrap-break-word whitespace-pre-wrap text-[15px] leading-7 text-zinc-50">
+                                                {{ message.content }}
+                                            </div>
                                         </div>
                                         <div
                                             v-else
@@ -346,7 +348,7 @@
                     </div>
                 </div>
 
-                <div class="shrink-0 border-t border-zinc-800/90 bg-[#212121] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.45)]">
+                <div class="shrink-0 border-t border-zinc-800/80 bg-[#0d0d0d] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.45)]">
                     <div class="mx-auto w-full max-w-3xl">
                         <ConversationUploadsModal
                             :open="uploadsModalOpen"
