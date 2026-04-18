@@ -1,163 +1,175 @@
 <template>
-    <div class="mx-auto min-h-dvh w-full max-w-4xl px-4 py-8">
-        <div class="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-            <p class="text-xl font-semibold text-zinc-100">Contact & Feedback</p>
-            <p class="mt-2 text-sm text-zinc-400">
-                Send an inquiry or share product feedback. This form submits directly to the public API.
-            </p>
-        </div>
-
-        <div class="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
-            <div class="mb-4 grid gap-3 sm:grid-cols-2">
-                <button
-                    type="button"
-                    class="rounded-lg border px-3 py-2 text-sm transition"
-                    :class="formType === 'contact'
-                        ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200'
-                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
-                    @click="switchType('contact')"
-                >
-                    Contact
-                </button>
-                <button
-                    type="button"
-                    class="rounded-lg border px-3 py-2 text-sm transition"
-                    :class="formType === 'feedback'
-                        ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200'
-                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'"
-                    @click="switchType('feedback')"
-                >
-                    Feedback
-                </button>
+    <div class="mx-auto min-h-dvh w-full max-w-3xl px-4 py-6 sm:px-5 sm:py-8">
+        <div class="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/20">
+            <div class="border-b border-zinc-800/80 bg-zinc-900/40 px-4 py-3 sm:px-5 sm:py-3.5">
+                <h1 class="text-lg font-semibold tracking-tight text-zinc-100 sm:text-xl">
+                    Contact & Feedback
+                </h1>
+                <p class="mt-1 text-xs leading-relaxed text-zinc-500 sm:text-sm">
+                    Send an inquiry or share product feedback. Submits to the public API.
+                </p>
             </div>
 
-            <form class="space-y-4" @submit.prevent="submitForm">
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="block">
-                        <span class="mb-1 block text-xs text-zinc-400">First name *</span>
-                        <input
-                            v-model.trim="form.first_name"
-                            type="text"
-                            maxlength="100"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
-                            placeholder="First name"
-                            :disabled="profileLocked"
-                            required
-                        >
-                    </label>
-                    <label class="block">
-                        <span class="mb-1 block text-xs text-zinc-400">Last name *</span>
-                        <input
-                            v-model.trim="form.last_name"
-                            type="text"
-                            maxlength="100"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
-                            placeholder="Last name"
-                            :disabled="profileLocked"
-                            required
-                        >
-                    </label>
-                </div>
-
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="block">
-                        <span class="mb-1 block text-xs text-zinc-400">Email *</span>
-                        <input
-                            v-model.trim="form.email"
-                            type="email"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
-                            placeholder="you@example.com"
-                            :disabled="profileLocked"
-                            required
-                        >
-                    </label>
-                    <label class="block">
-                        <span class="mb-1 block text-xs text-zinc-400">Phone</span>
-                        <input
-                            v-model.trim="form.phone"
-                            type="text"
-                            maxlength="30"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
-                            placeholder="+91..."
-                            :disabled="profileLocked"
-                        >
-                    </label>
-                </div>
-                <p v-if="profileLocked" class="text-xs text-zinc-500">
-                    Profile info is auto-filled from your account and cannot be edited here.
-                </p>
-
-                <div v-if="formType === 'feedback'" class="grid gap-4 sm:grid-cols-2">
-                    <label class="block">
-                        <span class="mb-1 block text-xs text-zinc-400">Feedback type</span>
-                        <select
-                            v-model="feedbackCategory"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                        >
-                            <option value="General">General</option>
-                            <option value="Bug Report">Bug Report</option>
-                            <option value="Feature Request">Feature Request</option>
-                            <option value="UX Feedback">UX Feedback</option>
-                        </select>
-                    </label>
-                    <label class="block">
-                        <span class="mb-1 block text-xs text-zinc-400">Rating</span>
-                        <select
-                            v-model="feedbackRating"
-                            class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                        >
-                            <option value="5">5 - Excellent</option>
-                            <option value="4">4 - Good</option>
-                            <option value="3">3 - Average</option>
-                            <option value="2">2 - Poor</option>
-                            <option value="1">1 - Very poor</option>
-                        </select>
-                    </label>
-                </div>
-
-                <label class="block">
-                    <span class="mb-1 block text-xs text-zinc-400">Subject *</span>
-                    <input
-                        v-model.trim="form.subject"
-                        type="text"
-                        maxlength="255"
-                        class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                        :placeholder="formType === 'feedback' ? 'Feedback subject' : 'Inquiry subject'"
-                        required
-                    >
-                </label>
-
-                <label class="block">
-                    <span class="mb-1 block text-xs text-zinc-400">Message *</span>
-                    <textarea
-                        v-model.trim="form.message"
-                        rows="6"
-                        maxlength="5000"
-                        class="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-                        :placeholder="formType === 'feedback'
-                            ? 'Share what worked, what did not, and what we should improve.'
-                            : 'Tell us how we can help you.'"
-                        required
-                    ></textarea>
-                </label>
-
-                <div v-if="errorText" class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                    {{ errorText }}
-                </div>
-                <div v-if="successText" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-                    {{ successText }}
-                </div>
-
-                <div class="flex items-center justify-end">
+            <div class="p-4 sm:p-5">
+                <div
+                    class="mb-4 flex w-full gap-2"
+                    role="tablist"
+                    aria-label="Form type"
+                >
                     <button
-                        type="submit"
-                        class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
-                        :disabled="submitting"
+                        type="button"
+                        role="tab"
+                        class="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition"
+                        :class="formType === 'contact'
+                            ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200 shadow-sm shadow-emerald-950/20'
+                            : 'border-zinc-700/90 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800/50 hover:text-zinc-200'"
+                        :aria-selected="formType === 'contact'"
+                        @click="switchType('contact')"
                     >
-                        {{ submitting ? 'Submitting...' : (formType === 'feedback' ? 'Submit feedback' : 'Send message') }}
+                        Contact
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        class="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition"
+                        :class="formType === 'feedback'
+                            ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200 shadow-sm shadow-emerald-950/20'
+                            : 'border-zinc-700/90 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800/50 hover:text-zinc-200'"
+                        :aria-selected="formType === 'feedback'"
+                        @click="switchType('feedback')"
+                    >
+                        Feedback
                     </button>
                 </div>
-            </form>
+
+                <form class="space-y-3 sm:space-y-3.5" @submit.prevent="submitForm">
+                    <div class="grid gap-3 sm:grid-cols-2 sm:gap-3">
+                        <label class="block min-w-0">
+                            <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">First name *</span>
+                            <input
+                                v-model.trim="form.first_name"
+                                type="text"
+                                maxlength="100"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                placeholder="First name"
+                                :disabled="profileLocked"
+                                required
+                            >
+                        </label>
+                        <label class="block min-w-0">
+                            <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Last name *</span>
+                            <input
+                                v-model.trim="form.last_name"
+                                type="text"
+                                maxlength="100"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                placeholder="Last name"
+                                :disabled="profileLocked"
+                                required
+                            >
+                        </label>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2 sm:gap-3">
+                        <label class="block min-w-0">
+                            <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Email *</span>
+                            <input
+                                v-model.trim="form.email"
+                                type="email"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                placeholder="you@example.com"
+                                :disabled="profileLocked"
+                                required
+                            >
+                        </label>
+                        <label class="block min-w-0">
+                            <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Phone</span>
+                            <input
+                                v-model.trim="form.phone"
+                                type="text"
+                                maxlength="30"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                placeholder="+91…"
+                                :disabled="profileLocked"
+                            >
+                        </label>
+                    </div>
+                    <p v-if="profileLocked" class="-mt-1 text-[11px] leading-snug text-zinc-600">
+                        Profile fields are filled from your account and cannot be edited here.
+                    </p>
+
+                    <div v-if="formType === 'feedback'" class="grid gap-3 sm:grid-cols-2 sm:gap-3">
+                        <label class="block min-w-0">
+                            <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Feedback type</span>
+                            <select
+                                v-model="feedbackCategory"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20"
+                            >
+                                <option value="General">General</option>
+                                <option value="Bug Report">Bug Report</option>
+                                <option value="Feature Request">Feature Request</option>
+                                <option value="UX Feedback">UX Feedback</option>
+                            </select>
+                        </label>
+                        <label class="block min-w-0">
+                            <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Rating</span>
+                            <select
+                                v-model="feedbackRating"
+                                class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20"
+                            >
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Good</option>
+                                <option value="3">3 - Average</option>
+                                <option value="2">2 - Poor</option>
+                                <option value="1">1 - Very poor</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <label class="block min-w-0">
+                        <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Subject *</span>
+                        <input
+                            v-model.trim="form.subject"
+                            type="text"
+                            maxlength="255"
+                            class="w-full rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-1.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20"
+                            :placeholder="formType === 'feedback' ? 'Feedback subject' : 'Inquiry subject'"
+                            required
+                        >
+                    </label>
+
+                    <label class="block min-w-0">
+                        <span class="mb-0.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Message *</span>
+                        <textarea
+                            v-model.trim="form.message"
+                            rows="5"
+                            maxlength="5000"
+                            class="w-full resize-y rounded-lg border border-zinc-700 bg-zinc-950/50 px-2.5 py-2 text-sm leading-relaxed text-zinc-100 outline-none transition focus:border-emerald-600/50 focus:ring-1 focus:ring-emerald-500/20"
+                            :placeholder="formType === 'feedback'
+                                ? 'Share what worked, what did not, and what we should improve.'
+                                : 'Tell us how we can help you.'"
+                            required
+                        ></textarea>
+                    </label>
+
+                    <div v-if="errorText" class="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                        {{ errorText }}
+                    </div>
+                    <div v-if="successText" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+                        {{ successText }}
+                    </div>
+
+                    <div class="flex items-center justify-end border-t border-zinc-800/60 pt-3">
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-100 disabled:opacity-60"
+                            :disabled="submitting"
+                        >
+                            {{ submitting ? 'Submitting...' : (formType === 'feedback' ? 'Submit feedback' : 'Send message') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </template>
