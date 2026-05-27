@@ -15,6 +15,6 @@ class SharePublicLayoutTest extends TestCase
         $response->assertSee('public-nav', false);
         $response->assertSee('Shared conversation', false);
         $response->assertSee('Shared Chat | Kaalo AI', false);
-        $response->assertDontSee('id="app"></div>', false);
+        $response->assertSee('public-footer', false);
     }
 }
