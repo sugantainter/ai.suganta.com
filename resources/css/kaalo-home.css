@@ -3,6 +3,89 @@
 .kaalo-hero {
     padding: 48px 0 64px;
     position: relative;
+    overflow: hidden;
+}
+
+.kaalo-hero::before {
+    content: "";
+    position: absolute;
+    width: 680px;
+    height: 680px;
+    top: -440px;
+    left: -260px;
+    background: radial-gradient(circle at center, rgba(99, 102, 241, 0.45), rgba(99, 102, 241, 0) 60%);
+    filter: blur(10px);
+    animation: kaalo-orb-drift 10s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.kaalo-hero::after {
+    content: "";
+    position: absolute;
+    width: 620px;
+    height: 620px;
+    bottom: -470px;
+    right: -240px;
+    background: radial-gradient(circle at center, rgba(168, 85, 247, 0.35), rgba(168, 85, 247, 0) 60%);
+    filter: blur(12px);
+    animation: kaalo-orb-drift-2 12s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.kaalo-hero .container {
+    position: relative;
+    z-index: 1;
+}
+
+.kaalo-chat-preview,
+.kaalo-step-card,
+.feature-card,
+.kaalo-plan-card,
+.faq-item {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.kaalo-chat-preview:hover {
+    transform: translateY(-3px);
+    border-color: rgba(99, 102, 241, 0.6);
+}
+
+.feature-card:hover,
+.kaalo-step-card:hover,
+.kaalo-plan-card:hover,
+.faq-item:hover {
+    transform: translateY(-2px);
+}
+
+@keyframes kaalo-orb-drift {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.85;
+    }
+    50% {
+        transform: translate(60px, 40px) scale(1.04);
+        opacity: 1;
+    }
+}
+
+@keyframes kaalo-orb-drift-2 {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.75;
+    }
+    50% {
+        transform: translate(-60px, -50px) scale(1.05);
+        opacity: 0.95;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kaalo-hero::before,
+    .kaalo-hero::after,
+    .kaalo-chat-preview__dot,
+    .kaalo-typing__dot {
+        animation: none !important;
+    }
 }
 
 .kaalo-hero__grid {
@@ -67,6 +150,213 @@
 
 .kaalo-hero__panel {
     margin-top: 8px;
+}
+
+.kaalo-hero__right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@media (min-width: 992px) {
+    .kaalo-hero__right {
+        gap: 18px;
+    }
+}
+
+/* ChatGPT/Gemini-style live preview (CSS-only animation) */
+.kaalo-chat-preview {
+    position: relative;
+    overflow: hidden;
+    padding: 18px 18px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    box-shadow: 0 16px 60px rgba(99, 102, 241, 0.12);
+    transform: translateZ(0);
+}
+
+.kaalo-chat-preview::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.25), rgba(236, 72, 153, 0.18));
+    filter: blur(14px);
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.kaalo-chat-preview__topbar {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.kaalo-chat-preview__title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+.kaalo-chat-preview__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12);
+    animation: kaalo-pulse 2s ease-in-out infinite;
+}
+
+.kaalo-chat-preview__models {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.kaalo-chat-model-chip {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-secondary);
+}
+
+.kaalo-chat-model-chip.is-active {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(99, 102, 241, 0.12);
+    color: #c4b5fd;
+}
+
+.kaalo-chat-preview__body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 12px 10px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kaalo-chat-preview__bubble {
+    max-width: 100%;
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+}
+
+.kaalo-chat-preview__bubble--user {
+    margin-left: auto;
+    background: rgba(99, 102, 241, 0.12);
+    color: #e5e7eb;
+    border-color: rgba(99, 102, 241, 0.35);
+}
+
+.kaalo-chat-preview__bubble--assistant {
+    background: rgba(255, 255, 255, 0.02);
+    color: #e5e7eb;
+}
+
+.kaalo-chat-preview__em {
+    color: #c4b5fd;
+    font-weight: 800;
+}
+
+.kaalo-chat-preview__assistant-sub {
+    margin-top: 6px;
+    font-size: 12px;
+    color: rgba(156, 163, 175, 0.95);
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.kaalo-chat-preview__composer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.kaalo-chat-preview__composer-hint {
+    font-size: 12px;
+    color: rgba(156, 163, 175, 0.95);
+}
+
+.kaalo-chat-preview__bubble--typing {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kaalo-typing {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.kaalo-typing__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(196, 181, 253, 0.95);
+    animation: kaalo-typing-bounce 1.2s ease-in-out infinite;
+}
+
+.kaalo-typing__dot:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.kaalo-typing__dot:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.kaalo-chat-preview__typing-label {
+    font-size: 12px;
+    color: rgba(156, 163, 175, 0.95);
+}
+
+@keyframes kaalo-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.08);
+        opacity: 0.85;
+    }
+}
+
+@keyframes kaalo-typing-bounce {
+    0%, 100% {
+        transform: translateY(0);
+        opacity: 0.75;
+    }
+    50% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
 }
 
 .kaalo-panel__title {

@@ -26,23 +26,65 @@
             </div>
         </div>
 
-        <div class="kaalo-hero__panel sidebar-card">
-            <h2 class="kaalo-panel__title">At a glance</h2>
-            <ul class="kaalo-highlight-list">
-                @foreach ($page['highlights'] as $item)
-                    <li>
-                        <span class="kaalo-highlight-list__label">{{ $item['label'] }}</span>
-                        <span class="kaalo-highlight-list__value">{{ $item['value'] }}</span>
-                    </li>
-                @endforeach
-            </ul>
-            <div class="kaalo-trust-row">
-                @foreach ($page['trust_stats'] as $stat)
-                    <div class="kaalo-trust-stat">
-                        <strong>{{ $stat['value'] }}</strong>
-                        <span>{{ $stat['label'] }}</span>
+        <div class="kaalo-hero__right">
+            <div class="kaalo-chat-preview sidebar-card" aria-hidden="true">
+                <div class="kaalo-chat-preview__topbar">
+                    <div class="kaalo-chat-preview__title">
+                        <span class="kaalo-chat-preview__dot"></span>
+                        Live study preview
                     </div>
-                @endforeach
+                    <div class="kaalo-chat-preview__models" aria-label="Model preview chips">
+                        @foreach ($hero['models'] as $model)
+                            <span class="kaalo-chat-model-chip{{ $loop->index === 1 ? ' is-active' : '' }}">
+                                {{ $model }}
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="kaalo-chat-preview__body">
+                    <div class="kaalo-chat-preview__bubble kaalo-chat-preview__bubble--user">
+                        I’m stuck on quadratic equations. Explain completing the square with an easy example.
+                    </div>
+                    <div class="kaalo-chat-preview__bubble kaalo-chat-preview__bubble--assistant">
+                        Sure. Completing the square turns <span class="kaalo-chat-preview__em">ax² + bx</span> into a perfect square form so you can solve it cleanly.
+                        <div class="kaalo-chat-preview__assistant-sub">
+                            Tip: Try it once step-by-step, then we’ll do a similar practice problem.
+                        </div>
+                    </div>
+                    <div class="kaalo-chat-preview__bubble kaalo-chat-preview__bubble--assistant kaalo-chat-preview__bubble--typing">
+                        <div class="kaalo-typing">
+                            <span class="kaalo-typing__dot"></span>
+                            <span class="kaalo-typing__dot"></span>
+                            <span class="kaalo-typing__dot"></span>
+                        </div>
+                        <div class="kaalo-chat-preview__typing-label">Generating study steps…</div>
+                    </div>
+                </div>
+
+                <div class="kaalo-chat-preview__composer">
+                    <span class="kaalo-chat-preview__composer-hint">Ask for a solution, then ask for a practice set.</span>
+                </div>
+            </div>
+
+            <div class="kaalo-hero__panel sidebar-card">
+                <h2 class="kaalo-panel__title">At a glance</h2>
+                <ul class="kaalo-highlight-list">
+                    @foreach ($page['highlights'] as $item)
+                        <li>
+                            <span class="kaalo-highlight-list__label">{{ $item['label'] }}</span>
+                            <span class="kaalo-highlight-list__value">{{ $item['value'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+                <div class="kaalo-trust-row">
+                    @foreach ($page['trust_stats'] as $stat)
+                        <div class="kaalo-trust-stat">
+                            <strong>{{ $stat['value'] }}</strong>
+                            <span>{{ $stat['label'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
             </div>
         </div>
     </div>
