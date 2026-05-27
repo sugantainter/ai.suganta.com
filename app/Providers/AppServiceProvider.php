@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\AI\ProviderRegistry;
+use App\Support\SugantaAuthResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -36,6 +38,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::composer('partials.public.header', function ($view): void {
+            $view->with(
+                'publicNavUser',
+                app(SugantaAuthResolver::class)->resolveForPublicNav(request())
+            );
+        });
+
         $resolveRateKey = static function (Request $request): string {
             $rateKey = $request->attributes->get('api_key_id')
                 ?? $request->attributes->get('tenant_id')

@@ -152,15 +152,121 @@ body {
 }
 
 .public-header__actions .public-btn--ghost,
-.public-header__actions .public-btn--primary {
+.public-header__actions .public-btn--primary,
+.public-header__actions .public-user-menu {
     display: none;
 }
 
 @media (min-width: 640px) {
     .public-header__actions .public-btn--ghost,
-    .public-header__actions .public-btn--primary {
+    .public-header__actions .public-btn--primary,
+    .public-header__actions .public-user-menu {
         display: inline-flex;
     }
+}
+
+.public-user-menu {
+    align-items: center;
+    gap: 12px;
+}
+
+.public-user-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 220px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 9999px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.public-user-chip__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.public-user-chip__avatar--initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--gradient-primary);
+}
+
+.public-user-chip__meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.public-user-chip__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.public-user-chip__email {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.public-btn--dashboard {
+    flex-shrink: 0;
+}
+
+.public-user-drawer-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.public-user-drawer-card__avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.public-user-drawer-card__avatar--initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--gradient-primary);
+}
+
+.public-user-drawer-card__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.public-user-drawer-card__email {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    word-break: break-all;
 }
 
 .public-btn {

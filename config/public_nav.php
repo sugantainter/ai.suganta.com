@@ -64,6 +64,17 @@ return [
         ],
     ],
 
+    'authenticated' => [
+        'dashboard' => [
+            'label' => 'Dashboard',
+            'href'  => $base . '/dashboard',
+        ],
+        'ai_dashboard' => [
+            'label' => 'Dashboard',
+            'href'  => 'https://ai.suganta.com/',
+        ],
+    ],
+
     'footer' => [
         'tagline' => 'SuGanta is an all-in-one edtech platform that connects learners, teachers, and institutes seamlessly. It simplifies access to quality education, personalized learning, and expert guidance. ',
 

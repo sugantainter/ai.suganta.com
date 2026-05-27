@@ -47,6 +47,16 @@
 
     $loginHref = $resolveHref($cta['login']);
     $registerHref = $resolveHref($cta['register']);
+
+    $navUser = $publicNavUser ?? [
+        'authenticated' => false,
+        'name' => '',
+        'email' => null,
+        'initials' => '',
+        'avatar_url' => null,
+        'dashboard_url' => url('/'),
+        'dashboard_label' => 'Dashboard',
+    ];
 @endphp
 
 <header class="public-header" id="site-header">
@@ -83,20 +93,50 @@
         </nav>
 
         <div class="public-header__actions">
-            <a
-                href="{{ $loginHref }}"
-                class="public-btn public-btn--ghost"
-                @if ($isExternal($cta['login'])) target="_blank" rel="noopener noreferrer" @endif
-            >
-                {{ $cta['login']['label'] }}
-            </a>
-            <a
-                href="{{ $registerHref }}"
-                class="public-btn public-btn--primary"
-                @if ($isExternal($cta['register'])) target="_blank" rel="noopener noreferrer" @endif
-            >
-                {{ $cta['register']['label'] }}
-            </a>
+            @if ($navUser['authenticated'])
+                <div class="public-user-menu" aria-label="Account">
+                    <div class="public-user-chip">
+                        @if (! empty($navUser['avatar_url']))
+                            <img
+                                src="{{ $navUser['avatar_url'] }}"
+                                alt=""
+                                class="public-user-chip__avatar"
+                                width="36"
+                                height="36"
+                                decoding="async"
+                            >
+                        @else
+                            <span class="public-user-chip__avatar public-user-chip__avatar--initials" aria-hidden="true">
+                                {{ $navUser['initials'] }}
+                            </span>
+                        @endif
+                        <span class="public-user-chip__meta">
+                            <span class="public-user-chip__name">{{ $navUser['name'] }}</span>
+                            @if (! empty($navUser['email']))
+                                <span class="public-user-chip__email">{{ $navUser['email'] }}</span>
+                            @endif
+                        </span>
+                    </div>
+                    <a href="{{ $navUser['dashboard_url'] }}" class="public-btn public-btn--primary public-btn--dashboard">
+                        {{ $navUser['dashboard_label'] }}
+                    </a>
+                </div>
+            @else
+                <a
+                    href="{{ $loginHref }}"
+                    class="public-btn public-btn--ghost"
+                    @if ($isExternal($cta['login'])) target="_blank" rel="noopener noreferrer" @endif
+                >
+                    {{ $cta['login']['label'] }}
+                </a>
+                <a
+                    href="{{ $registerHref }}"
+                    class="public-btn public-btn--primary"
+                    @if ($isExternal($cta['register'])) target="_blank" rel="noopener noreferrer" @endif
+                >
+                    {{ $cta['register']['label'] }}
+                </a>
+            @endif
 
             <button
                 type="button"
@@ -143,8 +183,25 @@
                 @endforeach
             </ul>
             <div class="public-nav-drawer__cta">
-                <a href="{{ $loginHref }}" class="public-btn public-btn--ghost public-btn--block">{{ $cta['login']['label'] }}</a>
-                <a href="{{ $registerHref }}" class="public-btn public-btn--primary public-btn--block">{{ $cta['register']['label'] }}</a>
+                @if ($navUser['authenticated'])
+                    <div class="public-user-drawer-card">
+                        @if (! empty($navUser['avatar_url']))
+                            <img src="{{ $navUser['avatar_url'] }}" alt="" class="public-user-drawer-card__avatar" width="48" height="48" decoding="async">
+                        @else
+                            <span class="public-user-drawer-card__avatar public-user-drawer-card__avatar--initials">{{ $navUser['initials'] }}</span>
+                        @endif
+                        <div>
+                            <div class="public-user-drawer-card__name">{{ $navUser['name'] }}</div>
+                            @if (! empty($navUser['email']))
+                                <div class="public-user-drawer-card__email">{{ $navUser['email'] }}</div>
+                            @endif
+                        </div>
+                    </div>
+                    <a href="{{ $navUser['dashboard_url'] }}" class="public-btn public-btn--primary public-btn--block">{{ $navUser['dashboard_label'] }}</a>
+                @else
+                    <a href="{{ $loginHref }}" class="public-btn public-btn--ghost public-btn--block">{{ $cta['login']['label'] }}</a>
+                    <a href="{{ $registerHref }}" class="public-btn public-btn--primary public-btn--block">{{ $cta['register']['label'] }}</a>
+                @endif
             </div>
         </div>
     </div>
