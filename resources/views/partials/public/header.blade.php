@@ -39,7 +39,10 @@
                 return true;
             }
         }
-        if (str_contains($href, 'ai.suganta.com') && request()->getHost() === 'ai.suganta.com') {
+        if (request()->routeIs('kaalo.home') && ($item['label'] ?? '') === 'Kaalo Ai') {
+            return true;
+        }
+        if (str_contains($href, 'ai.suganta.com') && request()->getHost() === 'ai.suganta.com' && ! request()->routeIs('kaalo.home')) {
             return ($item['label'] ?? '') === 'Kaalo Ai';
         }
         return false;

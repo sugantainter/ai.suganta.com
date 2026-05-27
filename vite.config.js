@@ -11,6 +11,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/css/seo.css',
                 'resources/css/seo-page.css',
+                'resources/css/kaalo-home.css',
                 'resources/js/seo.js',
             ],
             refresh: true,

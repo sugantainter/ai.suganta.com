@@ -1,21 +1,22 @@
 <?php
 
+use App\Http\Controllers\KaaloHomeController;
+use App\Http\Controllers\Seo\DynamicSeoController;
 use App\Http\Controllers\SpaController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [SpaController::class, 'index'])
-    ->middleware('auth.check');
+Route::get('/', [KaaloHomeController::class, 'index'])->name('kaalo.home');
 
-Route::get('/settings', [SpaController::class, 'settings'])
-    ->middleware('auth.check');
+Route::middleware('auth.check')->group(function (): void {
+    Route::get('/c/{conversationId}', [SpaController::class, 'index'])
+        ->where('conversationId', '[A-Za-z0-9\-]+');
+    Route::get('/settings', [SpaController::class, 'settings']);
+    Route::get('/contact', [SpaController::class, 'fallback']);
+    Route::get('/feedback', [SpaController::class, 'fallback']);
+});
 
-Route::get('/contact', [SpaController::class, 'fallback'])
-    ->middleware('auth.check');
+Route::get('/share/{shareToken}', [SpaController::class, 'share'])
+    ->name('chat.share');
 
-Route::get('/feedback', [SpaController::class, 'fallback'])
-    ->middleware('auth.check');
-
-Route::get('/share/{shareToken}', [SpaController::class, 'fallback']);
-
-Route::get('/{slug}', [App\Http\Controllers\Seo\DynamicSeoController::class, 'render'])
+Route::get('/{slug}', [DynamicSeoController::class, 'render'])
     ->where('slug', '(?!sanctum|api|up|sitemap\.xml$).+');

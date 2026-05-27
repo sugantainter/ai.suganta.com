@@ -1,0 +1,47 @@
+/* Vue app shell inside public layout (shared chat, etc.) */
+
+.public-main--app {
+    padding: 0;
+    max-width: none;
+    width: 100%;
+}
+
+.public-app-mount {
+    min-height: calc(100dvh - 72px);
+    display: flex;
+    flex-direction: column;
+}
+
+.public-app-mount #app {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.public-share-banner {
+    background: rgba(99, 102, 241, 0.08);
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 24px;
+}
+
+.public-share-banner__inner {
+    max-width: 56rem;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.public-share-banner p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.public-share-banner strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}

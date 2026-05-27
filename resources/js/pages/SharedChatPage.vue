@@ -1,34 +1,7 @@
 <template>
-    <div class="h-dvh overflow-hidden bg-[#0f0f0f] text-zinc-100">
-        <div class="flex h-full min-h-0 flex-col overflow-hidden bg-[#212121]">
-            <div class="sticky top-0 z-30 shrink-0 border-b border-zinc-800 bg-[#1b1b1b]/80 px-4 py-3 backdrop-blur">
-                <div class="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <a
-                            :href="siteChatUrl"
-                            class="rounded-xl border border-zinc-700 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/30"
-                        >
-                            <img
-                                src="/logo/Su250.png"
-                                alt="SuGanta"
-                                class="h-7 w-auto rounded-md"
-                            >
-                        </a>
-                        <div>
-                            <p class="text-sm font-semibold text-zinc-100">Shared conversation</p>
-                            <p class="text-xs text-zinc-400">Public view-only page</p>
-                        </div>
-                    </div>
-                    <a
-                        :href="siteChatUrl"
-                        class="rounded-lg border border-emerald-700/60 bg-emerald-950/50 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/60"
-                    >
-                        Go to chat
-                    </a>
-                </div>
-            </div>
-
-            <div ref="messageContainerRef" class="chat-scroll min-h-0 scroll-smooth overflow-y-auto overscroll-contain">
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f0f0f] text-zinc-100">
+        <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#212121]">
+            <div ref="messageContainerRef" class="chat-scroll min-h-0 flex-1 scroll-smooth overflow-y-auto overscroll-contain">
                 <div class="mx-auto w-full max-w-4xl px-3 py-4 sm:px-4 sm:py-6">
                     <div class="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
                         <p class="text-sm text-zinc-300">This is a public snapshot of a conversation.</p>
