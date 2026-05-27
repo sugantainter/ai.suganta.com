@@ -316,7 +316,7 @@ class DynamicContentService
 
         // The List
         $toolSpecs = [
-            ['name' => 'SuGanta AI Hub', 'tagline' => 'Unified Cognitive Suite', 'score' => '9.9', 'desc' => 'An enterprise-grade interface allowing you to chat with Claude, ChatGPT, and Gemini side-by-side. It features shared workspace history, built-in OCR document readers, and customized settings control.'],
+            ['name' => 'Kaalo AI by SuGanta', 'tagline' => 'Unified Learning-First Workspace', 'score' => '9.9', 'desc' => 'A learning-first workspace putting ChatGPT, Gemini, Claude, and DeepSeek in one page. Built for students, teachers, and institutes to solve doubts, draft lesson plans, and compare explanations side-by-side without managing separate bills.'],
             ['name' => 'Claude 3.5 Sonnet', 'tagline' => 'Advanced Logic & Code Engine', 'score' => '9.7', 'desc' => 'Widely considered the best model for analytical writing, debugging, and parsing complex datasets. Its Artifacts interface allows you to view code output, interactive diagrams, and web layouts in real time.'],
             ['name' => 'Perplexity AI', 'tagline' => 'Conversational Search Engine', 'score' => '9.5', 'desc' => 'Replaces standard search queries with comprehensive, source-cited research summaries. Perfect for factual verification, study notes, and keeping up with current industry developments.'],
             ['name' => 'ChatGPT Plus', 'tagline' => 'Creative & Multi-Modal Assistant', 'score' => '9.4', 'desc' => 'The pioneer of conversational assistants. Powered by advanced multimodal engines, it handles speech synthesis, document generation, and custom GPT app building with ease.'],
@@ -355,10 +355,10 @@ class DynamicContentService
                                </thead>
                                <tbody>
                                    <tr>
-                                       <td><strong>SuGanta Hub</strong></td>
-                                       <td>Unified Chat & Multi-Model Access</td>
+                                       <td><strong>Kaalo AI</strong></td>
+                                       <td>Unified doubt solving & multi-model prep</td>
                                        <td>Low</td>
-                                       <td>Free Tier & Premium Plan</td>
+                                       <td>Plans from ₹499/month</td>
                                    </tr>
                                    <tr>
                                        <td><strong>Claude Sonnet</strong></td>
@@ -442,7 +442,7 @@ class DynamicContentService
         $faqs = [
             [
                 'question' => "Are there free AI tools available for {$modifier}?",
-                'answer' => "Yes, almost all platforms listed (including SuGanta AI, ChatGPT, Claude, and Perplexity) offer generous free tiers that let you run basic queries and core models without paying."
+                'answer' => "Yes, almost all platforms listed (including Kaalo AI, ChatGPT, Gemini, and Claude) offer free tiers that let you run basic queries and study workflows without paying."
             ],
             [
                 'question' => "How do these tools help {$modifier} specifically?",
@@ -480,7 +480,7 @@ class DynamicContentService
 
         // Alternatives list
         $altSpecs = [
-            ['name' => 'SuGanta Hub', 'strength' => 'Unified AI API access to multiple models', 'pricing' => 'Free / Premium'],
+            ['name' => 'Kaalo AI by SuGanta', 'strength' => 'All popular premium models in one workspace designed for study & teaching', 'pricing' => 'From ₹499/month'],
             ['name' => 'Claude 3.5 Sonnet', 'strength' => 'Superior logical writing & code structure', 'pricing' => 'Free / $20/mo'],
             ['name' => 'Perplexity AI', 'strength' => 'Real-time citation research searches', 'pricing' => 'Free / $20/mo'],
             ['name' => 'DeepSeek Coder', 'strength' => 'Cost-effective open-weights coding system', 'pricing' => 'API pay-as-you-go'],
@@ -572,7 +572,7 @@ class DynamicContentService
         $faqs = [
             [
                 'question' => "Is there a free alternative to {$tool}?",
-                'answer' => "Yes. SuGanta Hub, Claude, and Microsoft Copilot all offer excellent free access levels that serve as direct, high-quality replacements for {$tool}."
+                'answer' => "Yes. Kaalo AI, Claude, and Microsoft Copilot all offer excellent free access levels that serve as direct, high-quality replacements for {$tool}."
             ],
             [
                 'question' => "Which alternative is best for coding?",
@@ -749,7 +749,7 @@ I am practicing a problem in {$target}. Here is my solution: [Insert Work]. Plea
             'body' => "<div class='card-grid'>
                            <div class='feature-card'>
                                <div class='feature-title'><span class='bullet'></span>Step 1: Interface Setup</div>
-                               <div class='feature-desc'>Access {$tool} and configure your settings. If using a unified hub like SuGanta AI, select your preferred model (e.g., Claude for logic, ChatGPT for creative writing).</div>
+                               <div class='feature-desc'>Access {$tool} and configure your settings. If using a multi-model workspace like Kaalo AI, select your preferred model (e.g., Claude for coding, Gemini for summaries).</div>
                            </div>
                            <div class='feature-card'>
                                <div class='feature-title'><span class='bullet'></span>Step 2: Context Provision</div>
@@ -799,7 +799,7 @@ I am practicing a problem in {$target}. Here is my solution: [Insert Work]. Plea
                                    <tr>
                                        <td><strong>Token Throttling / Limits</strong></td>
                                        <td>Exceeded maximum context window or request rate limit.</td>
-                                       <td>Summarize previous messages or switch model routing in SuGanta Hub.</td>
+                                       <td>Summarize previous messages or switch model routing in Kaalo AI.</td>
                                    </tr>
                                    <tr>
                                        <td><strong>Mismatched Formatting</strong></td>
@@ -956,7 +956,7 @@ I am practicing a problem in {$target}. Here is my solution: [Insert Work]. Plea
     private function getRandomTrendingTools(int $seed): array
     {
         $allTools = [
-            ['name' => 'SuGanta Hub', 'category' => 'Unified AI API', 'rating' => '9.9'],
+            ['name' => 'Kaalo AI', 'category' => 'Multi-Model Workspace', 'rating' => '9.9'],
             ['name' => 'Claude 3.5 Sonnet', 'category' => 'Logic & Reasoning', 'rating' => '9.8'],
             ['name' => 'ChatGPT Plus', 'category' => 'Conversational AI', 'rating' => '9.4'],
             ['name' => 'Perplexity AI', 'category' => 'Conversational Search', 'rating' => '9.5'],

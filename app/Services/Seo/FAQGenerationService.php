@@ -35,7 +35,7 @@ class FAQGenerationService
                 return [
                     [
                         'question' => "What is the best overall AI software for {$modifier}?",
-                        'answer' => "SuGanta AI Hub ranks as our top choice because it aggregates multiple models (Claude, ChatGPT, Gemini) under a single dashboard, saving subscription fees."
+                        'answer' => "Kaalo AI by SuGanta ranks as our top choice because it aggregates multiple models (Claude, ChatGPT, Gemini, and DeepSeek) under a single dashboard, saving subscription fees."
                     ],
                     [
                         'question' => "Do I need technical skills to use these AI tools?",
@@ -52,7 +52,7 @@ class FAQGenerationService
                     ],
                     [
                         'question' => "Which is the most cost-effective alternative to {$tool}?",
-                        'answer' => "For heavy api usage, DeepSeek Coder is extremely cost-effective. For general chat, SuGanta Hub offers the best value by bundling top models together."
+                        'answer' => "For heavy api usage, DeepSeek Coder is extremely cost-effective. For general chat and study, Kaalo AI offers the best value by bundling top models together under a single plan."
                     ]
                 ];
 
@@ -72,8 +72,8 @@ class FAQGenerationService
             default:
                 return [
                     [
-                        'question' => "How does the SuGanta AI Hub operate?",
-                        'answer' => "SuGanta AI Hub connects directly to top-tier LLM providers via API keys, presenting them within a unified, responsive client interface with integrated settings."
+                        'question' => "How does Kaalo AI operate?",
+                        'answer' => "Kaalo AI by SuGanta connects directly to top-tier LLM providers, presenting ChatGPT, Gemini, Claude, and DeepSeek within a unified, responsive client interface with integrated settings."
                     ]
                 ];
         }

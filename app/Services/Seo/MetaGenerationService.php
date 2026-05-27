@@ -16,12 +16,12 @@ class MetaGenerationService
         $keywordsList = array_unique(array_merge(
             [$analysis['pageType'] ?? 'ai tools'],
             $clusters,
-            ['suganta ai', 'unified chat', 'cognitive engines']
+            ['kaalo ai', 'suganta tutor', 'unified chat', 'cognitive engines']
         ));
         $keywords = implode(', ', array_slice($keywordsList, 0, 10));
 
         return [
-            'title' => $content['hero']['title'] . ' - SuGanta AI',
+            'title' => $content['hero']['title'] . ' - Kaalo AI by SuGanta',
             'description' => $content['hero']['description'],
             'keywords' => $keywords,
             'canonical' => $canonical,

@@ -27,11 +27,11 @@ class SchemaGenerationService
 
         // 3. Page Type Specific Schema
         if ($pageType === 'comparison' || $pageType === 'alternatives') {
-            // SoftwareApplication Schema (SuGanta AI)
+            // SoftwareApplication Schema (Kaalo AI)
             $schema['software'] = [
                 '@context' => 'https://schema.org',
                 '@type' => 'SoftwareApplication',
-                'name' => 'SuGanta AI Hub',
+                'name' => 'Kaalo AI',
                 'operatingSystem' => 'All',
                 'applicationCategory' => 'BusinessApplication',
                 'aggregateRating' => [
@@ -146,7 +146,7 @@ class SchemaGenerationService
         // Parse list items from the HTML or list details
         // To be safe and simple, we dynamically generate elements
         $items = [
-            'SuGanta AI Hub',
+            'Kaalo AI by SuGanta',
             'Claude 3.5 Sonnet',
             'Perplexity AI',
             'ChatGPT Plus',
