@@ -214,6 +214,43 @@ class DynamicContentService
                        </div>"
         ];
 
+        // Evaluation Methodology
+        $sections['evaluation-methodology'] = [
+            'title' => "Testing Methodology & Performance Criteria",
+            'body' => "<p>To provide an objective comparison, our team benchmarked both models across five core dimensions:</p>
+                       <ul>
+                           <li><strong>Semantic Logic & Reasoning (40% Weight):</strong> Evaluated using complex logic grids, multi-step word puzzles, and debugging exercises containing obfuscated variables.</li>
+                           <li><strong>Syntactic Accuracy (20% Weight):</strong> Code rendering was tested in python, javascript, and PHP. Programs were compiled in a sandbox to catch silent bugs or imports.</li>
+                           <li><strong>Context Token Ingestion (15% Weight):</strong> Large PDF uploads and codebase directories were fed to models to check retrieval accuracy (needle-in-a-haystack metrics).</li>
+                           <li><strong>Latency & Token Generation Rate (15% Weight):</strong> Tested during peak traffic hours (10:00 AM to 4:00 PM EST) to measure average Time-To-First-Token (TTFT) and Tokens-Per-Second (TPS).</li>
+                           <li><strong>Multimodal Alignment (10% Weight):</strong> Checked image-to-text transcription accuracy for low-resolution charts and handwritten formula sheets.</li>
+                       </ul>"
+        ];
+
+        // Prompt Engineering
+        $sections['prompt-engineering'] = [
+            'title' => "Copy-Pasteable Prompt Workflows",
+            'body' => "<p>To maximize performance when running these cognitive engines, copy and adapt these structured prompting templates:</p>
+                       <div style='background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 20px;'>
+                           <h4 style='color: var(--primary); font-size: 14px; margin-bottom: 10px; font-family: var(--font-display);'>Template 1: Multi-Step Reasoner (Best for {$tool1})</h4>
+                           <pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-secondary); background: #000; padding: 12px; border-radius: 6px;'>
+[Role]: You are an elite systems architect and logic tutor.
+[Context]: I am studying a complex workflow in {$modifier}.
+[Task]: Break down the core concepts of [Insert Topic] step-by-step.
+[Constraints]: Outline your logical chain-of-thought before writing the final code or explanation. Do not use generic explanations. Provide one concrete real-world analogy.
+                           </pre>
+                       </div>
+                       <div style='background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px;'>
+                           <h4 style='color: var(--secondary); font-size: 14px; margin-bottom: 10px; font-family: var(--font-display);'>Template 2: Document Analytical Parser (Best for {$tool2})</h4>
+                           <pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-secondary); background: #000; padding: 12px; border-radius: 6px;'>
+[Role]: You are a high-speed data analyst with a 2-million token window.
+[Task]: Synthesize the attached codebase/dataset.
+[Output Format]: Renders as a Markdown table with columns: Segment, Potential Efficiency Gap, Recommended Action.
+[Constraint]: Reference exact lines or file paths from the inputs.
+                           </pre>
+                       </div>"
+        ];
+
         // Pricing
         $sections['pricing'] = [
             'title' => "Pricing & Access Tiers",
@@ -372,6 +409,35 @@ class DynamicContentService
                        </div>"
         ];
 
+        // Ranking Methodology
+        $sections['ranking-methodology'] = [
+            'title' => "Methodology: How We Evaluate Tools",
+            'body' => "<p>To ensure high rankings and actionable value, we score products using a rigorous 4-step framework:</p>
+                       <ol>
+                           <li><strong>Interface Usability (30% weight):</strong> Evaluates onboarding flow, keyboard navigation, and settings customization.</li>
+                           <li><strong>Model Intelligence (30% weight):</strong> Assesses logic parsing, contextual awareness, and hallucination rates.</li>
+                           <li><strong>Integration Flexibility (20% weight):</strong> Measures API availability, browser extensions, and workspace export options.</li>
+                           <li><strong>Cost Efficiency (20% weight):</strong> Contrasts features unlocked in the free tier vs. the value provided by premium plans.</li>
+                       </ol>"
+        ];
+
+        // Interactive Cookbooks
+        $sections['pro-prompts'] = [
+            'title' => "Prompt Cookbooks for Peak Productivity",
+            'body' => "<p>Maximize your selected toolstack using this contextual study and task-management template:</p>
+                       <div style='background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px;'>
+                           <h4 style='color: var(--primary); font-size: 14px; margin-bottom: 10px; font-family: var(--font-display);'>Master Concept Synthesizer Prompt</h4>
+                           <pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-secondary); background: #000; padding: 12px; border-radius: 6px;'>
+[Context]: I am using a unified AI model to master [Insert Topic] for {$modifier}.
+[Goal]: Renders a 3-part study sheet.
+[Format Requirements]:
+1. 'Theoretical Core': A 3-sentence plain explanation of the topic.
+2. 'Mental Model': A real-world analogy to make it intuitive.
+3. 'Self-Testing Block': Generate 3 diagnostic questions with a hidden key for validation.
+                           </pre>
+                       </div>"
+        ];
+
         // FAQs
         $faqs = [
             [
@@ -458,6 +524,50 @@ class DynamicContentService
                        </div>"
         ];
 
+        // Migration Checklist
+        $sections['migration-checklist'] = [
+            'title' => "Step-by-Step Migration Guide",
+            'body' => "<p>To migrate your workflows from {$tool} to any alternative platform smoothly, follow this 4-step checklist:</p>
+                       <ol>
+                           <li><strong>Export Conversation History:</strong> Download your existing logs from the settings dashboard of {$tool} (typically available in JSON or HTML format).</li>
+                           <li><strong>Map Prompting Patterns:</strong> Alternatives may use different system guidelines. Adjust your role templates to match the new model's context window rules.</li>
+                           <li><strong>Configure API Keys:</strong> If using a developer-level alternative, set up your billing profile and retrieve your API keys to prevent request limits.</li>
+                           <li><strong>Run Initial Benchmark Queries:</strong> Test the new engine on 3 complex tasks (logic, synthesis, summaries) to verify that output quality matches your expectations.</li>
+                       </ol>"
+        ];
+
+        // Financial Impact
+        $sections['financial-impact'] = [
+            'title' => "Cost-Benefit & Financial Impact Analysis",
+            'body' => "<p>Selecting an alternative is often driven by financial efficiency. Let's compare standard pricing frameworks:</p>
+                       <div class='table-container'>
+                           <table class='comparison-table'>
+                               <thead>
+                                   <tr>
+                                       <th>Access Model</th>
+                                       <th>{$tool} Cost</th>
+                                       <th>Alternative Cost</th>
+                                       <th>Net Savings / Value</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   <tr>
+                                       <td><strong>Subscription Tier</strong></td>
+                                       <td>$20 / month (fixed)</td>
+                                       <td>$20 / month or Free</td>
+                                       <td>Equivalent; unlock multiple models for same price.</td>
+                                   </tr>
+                                   <tr>
+                                       <td><strong>API Pay-As-You-Go</strong></td>
+                                       <td>Standard token pricing</td>
+                                       <td>Ultra-competitive (e.g., DeepSeek)</td>
+                                       <td>Up to 80% reduction in developer token costs.</td>
+                                   </tr>
+                               </tbody>
+                           </table>
+                       </div>"
+        ];
+
         // FAQs
         $faqs = [
             [
@@ -528,6 +638,68 @@ class DynamicContentService
                            <li><strong>Immediate Clarification:</strong> Eliminates blocks. You don't have to wait for the next day's class to ask a question.</li>
                            <li><strong>Custom Curriculum Design:</strong> Ask the AI to build a 4-week study syllabus for {$target} structured around your specific study availability.</li>
                        </ul>"
+        ];
+
+        // Weekly Curriculum
+        $sections['weekly-curriculum'] = [
+            'title' => "4-Week AI-Powered Study Roadmap",
+            'body' => "<p>Mastering {$target} is easier when broken into structured phases. Here is our recommended 4-week AI-supported curriculum:</p>
+                       <div class='table-container'>
+                           <table class='comparison-table'>
+                               <thead>
+                                   <tr>
+                                       <th>Week</th>
+                                       <th>Focus Area</th>
+                                       <th>AI Study Technique</th>
+                                       <th>Target Milestone</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   <tr>
+                                       <td><strong>Week 1</strong></td>
+                                       <td>Core Fundamentals</td>
+                                       <td>Prompt model to explain definitions and analogies.</td>
+                                       <td>Understand structural foundations.</td>
+                                   </tr>
+                                   <tr>
+                                       <td><strong>Week 2</strong></td>
+                                       <td>Practical Application</td>
+                                       <td>Ask model to generate code/formula exercises.</td>
+                                       <td>Solve medium-difficulty problems manually.</td>
+                                   </tr>
+                                   <tr>
+                                       <td><strong>Week 3</strong></td>
+                                       <td>Edge Cases & Synthesis</td>
+                                       <td>Request the model to review and debug your solutions.</td>
+                                       <td>Optimize accuracy and catch subtle errors.</td>
+                                   </tr>
+                                   <tr>
+                                       <td><strong>Week 4</strong></td>
+                                       <td>Mock Examination</td>
+                                       <td>Generate a timed exam and solve under constraint.</td>
+                                       <td>Build confidence and timing control.</td>
+                                   </tr>
+                               </tbody>
+                           </table>
+                       </div>"
+        ];
+
+        // Prompt Cookbook
+        $sections['prompt-cookbook'] = [
+            'title' => "Subject-Specific Study Prompts",
+            'body' => "<p>Use these copy-pasteable prompts to turn your model into a dedicated tutor for {$target}:</p>
+                       <div style='background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 20px;'>
+                           <h4 style='color: var(--primary); font-size: 14px; margin-bottom: 10px; font-family: var(--font-display);'>Prompt 1: Socratic Explainer</h4>
+                           <pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-secondary); background: #000; padding: 12px; border-radius: 6px;'>
+You are a socratic teacher helping me learn {$target}. Do not give me answers directly. Instead, ask me guiding questions that lead me to discover the correct solution on my own. Let's start with [Insert Concept].
+                           </pre>
+                       </div>
+                       <div style='background: rgba(255,255,255,0.01); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px;'>
+                           <h4 style='color: var(--secondary); font-size: 14px; margin-bottom: 10px; font-family: var(--font-display);'>Prompt 2: Diagnostic Error Catcher</h4>
+                           <pre style='white-space: pre-wrap; font-family: monospace; font-size: 12px; color: var(--text-secondary); background: #000; padding: 12px; border-radius: 6px;'>
+I am practicing a problem in {$target}. Here is my solution: [Insert Work]. Please review it, identify the exact line where a logical error or typo occurs, and explain the mathematical/logical reason behind the error without rewriting the code for me.
+                           </pre>
+                       </div>"
         ];
 
         // FAQs
@@ -602,6 +774,51 @@ class DynamicContentService
                            <li><strong>System Prompts:</strong> Save a default system prompt in your settings to enforce consistent formatting across chats.</li>
                            <li><strong>Chain-of-Thought:</strong> Add the phrase <em>'Think step-by-step'</em> to prompts to force the model to outline its reasoning before writing answers.</li>
                            <li><strong>Temperature Control:</strong> Set a lower temperature (e.g., 0.2) for strict coding/factual tasks, and a higher temperature (e.g., 0.8) for creative brainstorming.</li>
+                       </ul>"
+        ];
+
+        // Troubleshooting
+        $sections['troubleshooting'] = [
+            'title' => "Troubleshooting Common Bottlenecks",
+            'body' => "<p>When operating {$tool}, you may encounter these common bottlenecks. Here is how to resolve them:</p>
+                       <div class='table-container'>
+                           <table class='comparison-table'>
+                               <thead>
+                                   <tr>
+                                       <th>Observed Issue</th>
+                                       <th>Root Cause</th>
+                                       <th>Resolving Step</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   <tr>
+                                       <td><strong>Output Hallucination</strong></td>
+                                       <td>High model temperature or insufficient guiding context.</td>
+                                       <td>Provide 3 example outputs (Few-Shot Prompting) and lower temperature.</td>
+                                   </tr>
+                                   <tr>
+                                       <td><strong>Token Throttling / Limits</strong></td>
+                                       <td>Exceeded maximum context window or request rate limit.</td>
+                                       <td>Summarize previous messages or switch model routing in SuGanta Hub.</td>
+                                   </tr>
+                                   <tr>
+                                       <td><strong>Mismatched Formatting</strong></td>
+                                       <td>Vague output constraints.</td>
+                                       <td>Enforce output schema explicitly: <em>'Respond ONLY in valid JSON matches.'</em></td>
+                                   </tr>
+                               </tbody>
+                           </table>
+                       </div>"
+        ];
+
+        // Advanced Parameters
+        $sections['advanced-parameters'] = [
+            'title' => "Fine-Tuning API Parameters",
+            'body' => "<p>If you are interacting with {$tool} via an API or custom client configurations, optimize these parameters:</p>
+                       <ul>
+                           <li><strong>Temperature (0.0 - 1.0):</strong> Set to <code>0.0</code> for absolute mathematical consistency. Set to <code>0.7</code> or higher for creative text rendering.</li>
+                           <li><strong>Top-P (Nucleus Sampling):</strong> Typically kept at <code>0.9</code>. Lowering Top-P limits the model to choosing from only the most probable token clusters, reducing rambling.</li>
+                           <li><strong>Frequency Penalty (-2.0 to 2.0):</strong> Enforce <code>0.5</code> to prevent the model from repeating identical phrasing across sentences.</li>
                        </ul>"
         ];
 
@@ -687,6 +904,29 @@ class DynamicContentService
                                <div class='feature-desc'>Establish strict system parameters and output formats. Use validation checks (like regex or schema parsers) to automatically reject malformed responses.</div>
                            </div>
                        </div>"
+        ];
+
+        // Orchestration Loops
+        $sections['orchestration-loops'] = [
+            'title' => "Detailed Agent Orchestration Loops",
+            'body' => "<p>Behind every high-efficiency " . ($subfolder === 'ai-agents' ? 'agent' : 'workflow') . ", a structured cognitive execution loop runs continuously. We build on the <strong>ReAct (Reason + Action)</strong> paradigm:</p>
+                       <ul>
+                           <li><strong>1. Thought:</strong> The agent evaluates the task parameters and forms a semantic plan.</li>
+                           <li><strong>2. Act:</strong> The agent calls specific tools (e.g., executing a SQL query or searching a web domain).</li>
+                           <li><strong>3. Observe:</strong> The tool returns an output payload. The agent reads the raw results.</li>
+                           <li><strong>4. Iterate:</strong> If the target goal is not yet satisfied, the orchestrator updates its plan and loops back to Step 1.</li>
+                       </ul>"
+        ];
+
+        // Compliance & Security
+        $sections['compliance-security'] = [
+            'title' => "Data Privacy & Compliance Guardrails",
+            'body' => "<p>Deploying cognitive workflows in enterprise {$target} domains requires strict security compliance guardrails:</p>
+                       <ul>
+                           <li><strong>PII Masking:</strong> An inline middleware script sanitizes inputs before they hit third-party APIs, masking names, emails, and financial credentials.</li>
+                           <li><strong>Data Residency (GDPR/CCPA):</strong> Custom API configurations route queries to EU-specific or regional model nodes, ensuring zero data retention policies.</li>
+                           <li><strong>Audit Logging:</strong> Every action taken by the orchestrator or sub-agents is logged with timestamp, tool payload, and cost metrics in an immutable log database.</li>
+                       </ul>"
         ];
 
         // FAQs
