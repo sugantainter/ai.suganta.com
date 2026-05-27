@@ -12,6 +12,19 @@ class ExampleTest extends TestCase
      */
     public function test_the_application_returns_a_successful_response(): void
     {
+        \Illuminate\Support\Facades\Http::fake([
+            '*auth/user*' => \Illuminate\Support\Facades\Http::response([
+                'data' => [
+                    'authenticated' => true,
+                    'user' => [
+                        'id' => 1,
+                        'name' => 'Test User',
+                        'email' => 'test@suganta.com',
+                    ]
+                ]
+            ], 200)
+        ]);
+
         $response = $this->get('/');
 
         $response->assertStatus(200);

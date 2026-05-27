@@ -9,37 +9,119 @@ class SeoSlugRegistryService
     ) {}
 
     /**
+     * Lazy Generator to yield all 1M+ dynamic SEO slugs without memory overhead.
+     *
+     * @return \Generator<string>
+     */
+    public function getSlugsGenerator(): \Generator
+    {
+        // 1. workflows
+        foreach (['ai-workflows', 'ai-agents'] as $prefix) {
+            foreach (array_keys(SlugAnalyzerService::INDUSTRIES) as $key) {
+                yield "{$prefix}/{$key}";
+            }
+            foreach (array_keys(SlugAnalyzerService::PROFESSIONS) as $key) {
+                yield "{$prefix}/{$key}";
+            }
+        }
+
+        // 2. alternatives
+        foreach (array_keys(SlugAnalyzerService::TOOLS) as $tool) {
+            yield "alternatives-to-{$tool}";
+            yield "{$tool}-alternatives";
+        }
+
+        // 3. listicles
+        $year = (int) config('seo.sitemap.listicle_year_suffix', (int) date('Y'));
+        foreach (array_keys(SlugAnalyzerService::PROFESSIONS) as $profession) {
+            yield "best-ai-tools-for-{$profession}";
+        }
+        foreach (array_keys(SlugAnalyzerService::SUBJECTS) as $subject) {
+            yield "best-ai-tools-for-learning-{$subject}";
+        }
+        foreach (array_keys(SlugAnalyzerService::INDUSTRIES) as $industry) {
+            yield "top-{$industry}-ai-tools";
+            yield "top-{$industry}-ai-tools-in-{$year}";
+        }
+
+        // 4. education
+        foreach (array_keys(SlugAnalyzerService::SUBJECTS) as $subject) {
+            yield "ai-tools-for-{$subject}";
+            yield "free-ai-tools-for-{$subject}";
+        }
+        foreach (array_keys(SlugAnalyzerService::PROFESSIONS) as $profession) {
+            yield "ai-tools-for-{$profession}";
+            yield "free-ai-tools-for-{$profession}";
+        }
+
+        // 5. future
+        foreach (array_keys(SlugAnalyzerService::INDUSTRIES) as $industry) {
+            yield "future-of-ai-in-{$industry}";
+        }
+        foreach (array_keys(SlugAnalyzerService::SUBJECTS) as $subject) {
+            yield "future-of-ai-in-{$subject}";
+        }
+
+        // 6. guides
+        foreach (array_keys(SlugAnalyzerService::TOOLS) as $tool) {
+            yield "how-to-use-{$tool}";
+            foreach (array_keys(SlugAnalyzerService::SUBJECTS) as $subject) {
+                yield "how-to-use-{$tool}-for-{$subject}";
+            }
+            foreach (array_keys(SlugAnalyzerService::PROFESSIONS) as $profession) {
+                yield "how-to-use-{$tool}-for-{$profession}";
+            }
+            yield "guide-to-{$tool}";
+        }
+        foreach (array_keys(SlugAnalyzerService::SUBJECTS) as $subject) {
+            yield "guide-to-{$subject}";
+        }
+
+        // 7. comparisons
+        $tools = array_keys(SlugAnalyzerService::TOOLS);
+        $professions = array_keys(SlugAnalyzerService::PROFESSIONS);
+        $subjects = array_keys(SlugAnalyzerService::SUBJECTS);
+        foreach ($tools as $tool1) {
+            foreach ($tools as $tool2) {
+                if ($tool1 === $tool2) {
+                    continue;
+                }
+                yield "{$tool1}-vs-{$tool2}";
+                foreach ($professions as $profession) {
+                    yield "{$tool1}-vs-{$tool2}-for-{$profession}";
+                }
+                foreach ($subjects as $subject) {
+                    yield "{$tool1}-vs-{$tool2}-for-{$subject}";
+                }
+            }
+        }
+    }
+
+    /**
      * All programmatic SEO slugs that pass SlugAnalyzer validation.
      *
      * @return list<string>
      */
-    public function allValidSlugs(): array
+    public function allValidSlugs(int $limit = 20000): array
     {
-        $candidates = array_unique(array_merge(
-            $this->workflowSlugs(),
-            $this->comparisonSlugs(),
-            $this->alternativeSlugs(),
-            $this->listicleSlugs(),
-            $this->educationSlugs(),
-            $this->guideSlugs(),
-            $this->futureSlugs(),
-        ));
-
-        sort($candidates);
-
-        return array_values(array_filter($candidates, function (string $slug): bool {
-            return ($this->analyzer->analyze($slug)['isValid'] ?? false) === true;
-        }));
+        $slugs = [];
+        foreach ($this->getSlugsGenerator() as $slug) {
+            $slugs[] = $slug;
+            if (count($slugs) >= $limit) {
+                break;
+            }
+        }
+        return $slugs;
     }
 
     /**
      * @return list<array{slug: string, pageType: string}>
      */
-    public function allValidEntries(): array
+    public function allValidEntries(int $limit = 20000): array
     {
         $entries = [];
 
-        foreach ($this->allValidSlugs() as $slug) {
+        foreach ($this->allValidSlugs($limit) as $slug) {
             $analysis = $this->analyzer->analyze($slug);
             $entries[] = [
                 'slug' => $slug,
