@@ -55,12 +55,11 @@
             <img
                 src="{{ asset(ltrim($logo['src'], '/')) }}"
                 alt="{{ $logo['alt'] }}"
-                width="40"
-                height="40"
+                width="120"
+                height="100"
                 class="public-logo__img"
                 decoding="async"
             >
-            <span class="public-logo__text">{{ $logo['alt'] }}</span>
         </a>
 
         <nav class="public-nav" id="public-nav" aria-label="Main navigation">

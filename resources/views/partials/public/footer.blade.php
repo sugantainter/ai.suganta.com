@@ -18,12 +18,11 @@
                     <img
                         src="{{ asset(ltrim(config('public_nav.header.logo.src'), '/')) }}"
                         alt="{{ config('public_nav.header.logo.alt') }}"
-                        width="36"
-                        height="36"
+                        width="120"
+                        height="100"
                         class="public-logo__img"
                         decoding="async"
                     >
-                    <span class="public-logo__text">{{ config('public_nav.header.logo.alt') }}</span>
                 </a>
                 <p class="public-footer__tagline">{{ $footer['tagline'] }}</p>
                 @if (! empty($footer['app_links']))
