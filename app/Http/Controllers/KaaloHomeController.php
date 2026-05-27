@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Middleware\AuthCheck;
 use App\Support\SugantaAuthResolver;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class KaaloHomeController extends Controller
 {
@@ -17,12 +17,15 @@ class KaaloHomeController extends Controller
     /**
      * Public marketing home for guests; authenticated users enter the chat app.
      */
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request): View|Response
     {
         $navUser = $this->authResolver->resolveForPublicNav($request);
 
         if ($navUser['authenticated']) {
-            return app(AuthCheck::class)->handle($request, fn () => view('spa'));
+            return app(AuthCheck::class)->handle(
+                $request,
+                fn () => response()->view('spa'),
+            );
         }
 
         $baseUrl = rtrim((string) config('app.url'), '/');

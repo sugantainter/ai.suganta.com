@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Support\SugantaLoginGateway;
 use Closure;
+use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -55,7 +56,7 @@ class AuthCheck
                 );
             }
 
-            return $next($request);
+            return $this->toResponse($next($request), $request);
         }
 
         try {
@@ -93,13 +94,26 @@ class AuthCheck
             if ((bool) data_get($cachedAuth, 'authenticated', false)) {
                 $this->applyRequestContext($request, $cachedAuth);
 
-                return $next($request);
+                return $this->toResponse($next($request), $request);
             }
 
             return SugantaLoginGateway::redirect($request);
         }
 
-        return $next($request);
+        return $this->toResponse($next($request), $request);
+    }
+
+    private function toResponse(mixed $result, Request $request): Response
+    {
+        if ($result instanceof Response) {
+            return $result;
+        }
+
+        if ($result instanceof Responsable) {
+            return $result->toResponse($request);
+        }
+
+        return response($result);
     }
 
     private function authCacheKey(string $cookieHeader, string $authorizationHeader): string
