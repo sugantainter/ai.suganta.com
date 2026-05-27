@@ -51,13 +51,12 @@
 
 <header class="public-header" id="site-header">
     <div class="container public-header__inner">
-        <a href="{{ $logo['href'] }}" class="public-logo" aria-label="{{ $logo['alt'] }} — Home">
+        <a href="{{ $logo['href'] }}"  aria-label="{{ $logo['alt'] }} — Home">
             <img
                 src="{{ asset(ltrim($logo['src'], '/')) }}"
                 alt="{{ $logo['alt'] }}"
                 width="120"
-                height="100"
-                class="public-logo__img"
+                height="80"
                 decoding="async"
             >
         </a>

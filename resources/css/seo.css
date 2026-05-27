@@ -86,8 +86,8 @@ body {
 }
 
 .public-logo__img {
-    width: 40px;
-    height: 40px;
+    width: 120px;
+    height: 80px;
     border-radius: 10px;
     object-fit: contain;
 }
@@ -541,8 +541,8 @@ aside {
 }
 
 .public-logo--footer .public-logo__img {
-    width: 36px;
-    height: 36px;
+    width: 120px;
+    height: 80px;
 }
 
 @keyframes pulseGlow {
