@@ -20,7 +20,6 @@
                         alt="{{ config('public_nav.header.logo.alt') }}"
                         width="120"
                         height="100"
-                        class="public-logo__img"
                         decoding="async"
                     >
                 </a>
