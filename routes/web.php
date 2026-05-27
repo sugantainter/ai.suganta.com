@@ -18,4 +18,4 @@ Route::get('/feedback', [SpaController::class, 'fallback'])
 Route::get('/share/{shareToken}', [SpaController::class, 'fallback']);
 
 Route::get('/{slug}', [App\Http\Controllers\Seo\DynamicSeoController::class, 'render'])
-    ->where('slug', '^(?!sanctum|api|up).*$');
+    ->where('slug', '^(?!sanctum|api|up|sitemap\.xml).*$');
