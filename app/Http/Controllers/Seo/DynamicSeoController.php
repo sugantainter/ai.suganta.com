@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Seo;
 
 use App\Http\Controllers\Controller;
-use App\Http\Middleware\AuthCheck;
 use App\Services\Seo\SlugAnalyzerService;
 use App\Services\Seo\IntentDetectionService;
 use App\Services\Seo\KeywordClusterService;
@@ -60,12 +59,8 @@ class DynamicSeoController extends Controller
         // 1. Analyze the slug
         $analysis = $this->analyzer->analyze($slug);
 
-        if (!$analysis['isValid']) {
-            // Replicate standard SPA fallback logic with AuthCheck middleware
-            $authCheck = new AuthCheck();
-            return $authCheck->handle($request, function ($req) {
-                return response()->view('spa');
-            });
+        if (! $analysis['isValid']) {
+            return $this->notFoundResponse($slug);
         }
 
         // 2. Try Redis Cache
@@ -130,8 +125,7 @@ class DynamicSeoController extends Controller
         // Generate Breadcrumb Labels for view
         $breadcrumbs = [];
         $categoryName = $pageData['hero']['category'] ?? 'AI Resources';
-        $categorySlug = \Illuminate\Support\Str::slug($categoryName);
-        $breadcrumbs[$categoryName] = url("/ai-workflows/{$categorySlug}");
+        $breadcrumbs[$categoryName] = $this->categoryBreadcrumbUrl($analysis);
         $breadcrumbs[$pageData['hero']['title']] = url($slug);
 
         // Render Blade template to HTML string
@@ -141,6 +135,43 @@ class DynamicSeoController extends Controller
             'schema' => $schema,
             'breadcrumbs' => $breadcrumbs,
         ])->render();
+    }
+
+    /**
+     * Map page analysis to a valid workflow hub URL for breadcrumbs.
+     */
+    protected function categoryBreadcrumbUrl(array $analysis): string
+    {
+        $industry = $analysis['industry'] ?? null;
+        if (is_string($industry)) {
+            $key = \Illuminate\Support\Str::slug($industry);
+            if (($this->analyzer->analyze("ai-workflows/{$key}")['isValid'] ?? false)) {
+                return url("ai-workflows/{$key}");
+            }
+        }
+
+        return url('ai-workflows/education');
+    }
+
+    /**
+     * Public SEO 404 — no auth redirect, no SPA fallback.
+     */
+    protected function notFoundResponse(string $slug): Response
+    {
+        $baseUrl = rtrim((string) config('app.url'), '/');
+        $path = ltrim($slug, '/');
+
+        return response()->view('seo.not-found', [
+            'seo' => [
+                'title' => 'Page Not Found | '.config('public_nav.header.logo.alt', 'SuGanta'),
+                'description' => 'The requested AI guide or comparison page could not be found.',
+                'keywords' => 'page not found, 404',
+                'robots' => 'noindex, follow',
+                'canonical' => $path !== '' ? "{$baseUrl}/{$path}" : $baseUrl,
+            ],
+            'schema' => [],
+            'breadcrumbs' => [],
+        ], Response::HTTP_NOT_FOUND)->header('X-Seo-Page', 'not-found');
     }
 
     /**

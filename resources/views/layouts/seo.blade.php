@@ -52,7 +52,7 @@
         <!-- Breadcrumbs Navigation -->
         @if(!empty($breadcrumbs))
             <ul class="breadcrumbs" aria-label="breadcrumb">
-                <li><a href="/">Home</a></li>
+                <li><a href="{{ config('public_nav.header.logo.href') }}">Home</a></li>
                 @foreach($breadcrumbs as $label => $url)
                     @if($loop->last)
                         <li aria-current="page">{{ $label }}</li>
