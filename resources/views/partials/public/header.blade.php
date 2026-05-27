@@ -56,7 +56,7 @@
                 src="{{ asset(ltrim($logo['src'], '/')) }}"
                 alt="{{ $logo['alt'] }}"
                 width="120"
-                height="80"
+                height="50"
                 decoding="async"
             >
         </a>

@@ -19,7 +19,7 @@
                         src="{{ asset(ltrim(config('public_nav.header.logo.src'), '/')) }}"
                         alt="{{ config('public_nav.header.logo.alt') }}"
                         width="120"
-                        height="100"
+                        height="50"
                         decoding="async"
                     >
                 </a>
