@@ -9,3 +9,7 @@
 @endphp
 
 @extends('layouts.public')
+
+@push('head')
+    @include('partials.adsense.head-script')
+@endpush

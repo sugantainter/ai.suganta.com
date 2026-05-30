@@ -23,6 +23,8 @@
     </div>
 </section>
 
+<x-google-ad placement="after_hero" variant="leaderboard" format="horizontal" />
+
 <!-- Content Grid Layout -->
 <div class="page-grid">
     <!-- Main Content Column -->
@@ -54,6 +56,10 @@
                     {!! $section['body'] !!}
                 </div>
             </section>
+
+            @if($loop->first)
+                <x-google-ad placement="in_content" variant="in-article" format="fluid" />
+            @endif
         @endforeach
 
         <!-- FAQ Section -->
@@ -90,10 +96,14 @@
                 </div>
             </section>
         @endif
+
+        <x-google-ad placement="bottom" variant="bottom" format="horizontal" />
     </article>
 
     <!-- Sidebar Column -->
     <aside>
+        <x-google-ad placement="display" variant="sidebar" format="rectangle" />
+
         <!-- Table of Contents -->
         <div class="sidebar-card">
             <h3>On This Page</h3>

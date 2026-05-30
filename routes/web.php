@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdsTxtController;
 use App\Http\Controllers\KaaloHomeController;
 use App\Http\Controllers\Seo\DynamicSeoController;
 use App\Http\Controllers\SpaController;
@@ -18,5 +19,6 @@ Route::middleware('auth.check')->group(function (): void {
 Route::get('/share/{shareToken}', [SpaController::class, 'share'])
     ->name('chat.share');
 
+
 Route::get('/{slug}', [DynamicSeoController::class, 'render'])
-    ->where('slug', '(?!sanctum|api|up|sitemap\.xml$).+');
+    ->where('slug', '(?!sanctum|api|up|ads\.txt$|sitemap\.xml$).+');

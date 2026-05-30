@@ -491,6 +491,69 @@ body.public-nav-open {
     font-weight: 500;
 }
 
+/* Google AdSense */
+.adsense-wrap {
+    margin: 0 auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+}
+
+.adsense-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    opacity: 0.65;
+    margin-bottom: 8px;
+}
+
+.adsense-wrap--leaderboard {
+    margin: 0 0 40px;
+    min-height: 90px;
+}
+
+.adsense-wrap--in-article {
+    margin: 8px 0 40px;
+    min-height: 250px;
+}
+
+.adsense-wrap--sidebar {
+    min-height: 250px;
+}
+
+.adsense-wrap--bottom {
+    margin: 48px 0 0;
+    min-height: 90px;
+}
+
+.adsense-wrap--debug .adsense-debug-box {
+    border: 2px dashed rgba(129, 140, 248, 0.45);
+    border-radius: 12px;
+    padding: 24px 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: rgba(99, 102, 241, 0.06);
+    line-height: 1.6;
+}
+
+.adsense-debug-hint {
+    color: #fbbf24;
+}
+
+.adsense-wrap .adsbygoogle {
+    display: block;
+    margin: 0 auto;
+}
+
+@media (max-width: 991px) {
+    .adsense-wrap--sidebar {
+        margin-bottom: 8px;
+    }
+}
+
 /* Main layout */
 .page-grid {
     display: grid;
