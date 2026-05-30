@@ -98,6 +98,6 @@ class CacheService
      */
     private function getCacheKey(string $slug): string
     {
-        return 'seo_page:v3:' . md5(trim(strtolower($slug), '/'));
+        return 'seo_page:v4:' . md5(trim(strtolower($slug), '/'));
     }
 }

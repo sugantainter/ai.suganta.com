@@ -20,7 +20,7 @@
 @endphp
 
 @if($canServeAd)
-    <div {{ $attributes->class(['adsense-wrap', "adsense-wrap--{$variantClass}"]) }} role="complementary" aria-label="Advertisement">
+    <div {{ $attributes->class(['adsense-wrap', 'adsense-wrap--pending', "adsense-wrap--{$variantClass}"]) }} role="complementary" aria-label="Advertisement" hidden>
         <span class="adsense-label">Advertisement</span>
         <ins
             class="adsbygoogle"
