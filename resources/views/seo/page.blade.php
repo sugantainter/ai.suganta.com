@@ -23,7 +23,7 @@
     </div>
 </section>
 
-<x-google-ad placement="after_hero" variant="leaderboard" format="horizontal" />
+<x-google-ad placement="after_hero" variant="leaderboard" format="auto" />
 
 <!-- Content Grid Layout -->
 <div class="page-grid">
@@ -58,7 +58,7 @@
             </section>
 
             @if($loop->first)
-                <x-google-ad placement="in_content" variant="in-article" format="fluid" />
+                <x-google-ad placement="in_content" variant="in-article" format="auto" />
             @endif
         @endforeach
 
@@ -97,13 +97,16 @@
             </section>
         @endif
 
-        <x-google-ad placement="bottom" variant="bottom" format="horizontal" />
+        <x-google-ad placement="bottom" variant="bottom" format="auto" />
     </article>
 
     <!-- Sidebar Column -->
-    <aside>
-        <x-google-ad placement="display" variant="sidebar" format="rectangle" />
+    <aside class="page-sidebar">
+        <div class="page-sidebar__ad">
+            <x-google-ad placement="display" variant="sidebar" format="auto" />
+        </div>
 
+        <div class="page-sidebar__widgets">
         <!-- Table of Contents -->
         <div class="sidebar-card">
             <h3>On This Page</h3>
@@ -143,6 +146,11 @@
                 </div>
             </div>
         @endif
+        </div>
     </aside>
 </div>
+
+@push('scripts')
+    @include('partials.adsense.init')
+@endpush
 @endsection

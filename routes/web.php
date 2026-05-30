@@ -19,6 +19,7 @@ Route::middleware('auth.check')->group(function (): void {
 Route::get('/share/{shareToken}', [SpaController::class, 'share'])
     ->name('chat.share');
 
+Route::get('/ads.txt', AdsTxtController::class);
 
 Route::get('/{slug}', [DynamicSeoController::class, 'render'])
     ->where('slug', '(?!sanctum|api|up|ads\.txt$|sitemap\.xml$).+');

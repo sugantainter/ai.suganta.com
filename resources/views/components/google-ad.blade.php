@@ -1,6 +1,6 @@
 @props([
     'placement' => null,
-    'slot' => null,
+    'adSlot' => null,
     'variant' => 'default',
     'format' => 'auto',
 ])
@@ -11,7 +11,7 @@
     $enabled = (bool) config('adsense.enabled');
     $slots = (array) config('adsense.slots', []);
 
-    $slotId = $slot ?? ($placement ? ($slots[$placement] ?? '') : '');
+    $slotId = $adSlot ?? ($placement ? ($slots[$placement] ?? '') : '');
     $slotId = (string) $slotId;
     $variantClass = $variant ?: ($placement ?? 'default');
 
@@ -24,13 +24,12 @@
         <span class="adsense-label">Advertisement</span>
         <ins
             class="adsbygoogle"
-            style="display:block"
+            style="display:block;width:100%;max-width:100%;min-width:0;overflow:hidden;margin:0 auto;"
             data-ad-client="{{ $clientId }}"
             data-ad-slot="{{ $slotId }}"
             data-ad-format="{{ $format }}"
             data-full-width-responsive="true"
         ></ins>
-        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 @elseif($showDebugPlaceholder)
     <div {{ $attributes->class(['adsense-wrap', 'adsense-wrap--debug', "adsense-wrap--{$variantClass}"]) }} role="complementary" aria-label="Advertisement placeholder">
